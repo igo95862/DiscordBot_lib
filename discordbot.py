@@ -1,0 +1,2 @@
+import discordrest
+import discordsocket
