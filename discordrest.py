@@ -59,8 +59,47 @@ class DiscordSession(requests.Session):
     def guild_channels_get(self, guild_id: int):
         return self.get(self.APIurl + '/guilds/' + str(guild_id) + '/channels')
 
-    def guild_channel_create(self, guild_id: int, name: str,):
-        pass
+    def guild_channel_create(self, guild_id: int, params: dict ):
+        return self.post(self.APIurl + '/guilds/' + str(guild_id) + '/channels', json=params)
+
+    def guild_channel_create_text(self, guild_id: int, name: str, permission_overwrites: dict = None):
+        params = {'name': name, 'type': 'text'}
+        if permission_overwrites is not None: params['permission_overwrites'] = permission_overwrites
+        return self.guild_channel_create(guild_id, {'name': name, })
+
+    def guild_channel_create_voice(self):
+        pass  # TODO: create voice channel function
+
+    def guild_channels_position_modify(self, guild_id: int, channel_id: int, position: int):
+        # NOTE: Test if this call accepts multiple channels
+        return self.patch(self.APIurl + '/guilds/' + str(guild_id) + '/channels', json={'id': channel_id,
+                                                                                        'position': position})
+
+    def guild_member_get(self, guild_id: int, user_id: int):
+        return self.get(self.APIurl + '/guilds/' + str(guild_id) + '/members/' + str(user_id))
+
+    def guild_members_list(self, guild_id: int, limit: int = None, after: int = None):
+        params = {}
+        if limit is not None: params['limit'] = limit
+        if after is not None: params['after'] = after
+        return self.get(self.APIurl + '/guilds/' + str(guild_id) + '/members', json=params or None)
+
+    def guild_member_add(self):
+        # TODO: Add guild member function. Probably after O2Auth gets implemented.
+        raise NotImplemented
+
+    def guild_member_modify(self, guild_id: int, user_id: int, params: dict):
+        return self.patch(self.APIurl + '/guilds/' + str(guild_id) + '/members/' + str(user_id), json=params)
+
+    def guild_member_modify_nick(self, guild_id: int, user_id: int, nick_to_set: str):
+        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'nick': nick_to_set})
+
+    def guild_member_modify_roles(self, guild_id: int, user_id: int, roles: list):
+        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'roles': roles})
+
+    def guild_member_modify_mute(self, guild_id: int, user_id: int, mute_bool: bool):
+        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'mute': mute_bool})
+
 
 
 
