@@ -100,6 +100,11 @@ class DiscordSession(requests.Session):
     def guild_member_modify_mute(self, guild_id: int, user_id: int, mute_bool: bool):
         return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'mute': mute_bool})
 
+    def guild_member_modify_deaf(self, guild_id: int, user_id: int, deaf_bool: bool):
+        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'deaf': deaf_bool})
+
+    def guild_member_modify_move(self, guild_id: int, user_id: int, channel_move_to: int):
+        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'channel_id': channel_move_to})
 
 
 
