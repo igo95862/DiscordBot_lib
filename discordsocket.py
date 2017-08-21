@@ -25,7 +25,7 @@ class DiscordWebsocket:
                  socket_url='wss://gateway.discord.gg/?v=6&encoding=json',
                  presence = {'status': 'online', 'afk': False}.copy(),
                  shard_num = 0, shard_total = 1,
-                 receive_queue=None, block_recieve_queue = False,
+                 receive_queue=None, block_receive_queue=False,
                  event_loop=None,
                  discard_events = False):
 
@@ -34,7 +34,7 @@ class DiscordWebsocket:
         self.presence = presence
         self.shard_num = shard_num
         self.shard_total = shard_total
-        self.block_recieve_queue = block_recieve_queue
+        self.block_receive_queue = block_receive_queue
         self.discard_events = discard_events
 
         if receive_queue is None:  # Checking if the queue was passed in arguments
@@ -84,7 +84,7 @@ class DiscordWebsocket:
                 # or of discard events is true
                 continue
             try:
-                self.receive_queue.put(payload, block=self.block_recieve_queue)
+                self.receive_queue.put(payload, block=self.block_receive_queue)
             except queue.Full:
                 continue
 
