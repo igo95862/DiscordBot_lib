@@ -43,7 +43,7 @@ class DiscordSession(requests.Session):
 
     def guild_create(self, ):
         # TODO: implement guild create REST API call
-        raise NotImplemented
+        raise NotImplementedError
 
     def guild_get(self, guild_id: int):
         return self.get(self.API_url + '/guilds/' + str(guild_id))
@@ -59,12 +59,13 @@ class DiscordSession(requests.Session):
     def guild_channels_get(self, guild_id: int):
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/channels')
 
-    def guild_channel_create(self, guild_id: int, params: dict ):
+    def guild_channel_create(self, guild_id: int, params: dict):
         return self.post(self.API_url + '/guilds/' + str(guild_id) + '/channels', json=params)
 
     def guild_channel_create_text(self, guild_id: int, name: str, permission_overwrites: dict = None):
         params = {'name': name, 'type': 'text'}
-        if permission_overwrites is not None: params['permission_overwrites'] = permission_overwrites
+        if permission_overwrites is not None:
+            params['permission_overwrites'] = permission_overwrites
         return self.guild_channel_create(guild_id, {'name': name, })
 
     def guild_channel_create_voice(self):
@@ -88,7 +89,7 @@ class DiscordSession(requests.Session):
 
     def guild_member_add(self):
         # TODO: Add guild member function. Probably after O2Auth gets implemented.
-        raise NotImplemented
+        raise NotImplementedError
 
     def guild_member_modify(self, guild_id: int, user_id: int, params: dict):
         return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id), json=params)
@@ -151,13 +152,113 @@ class DiscordSession(requests.Session):
         return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/roles', json={'id': role_id,
                                                                                       'position': position})
 
-    def guild_role_modify(self):
-        pass
+    def guild_role_modify(self, guild_id: int, role_id: int, params: dict):
+        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/roles/' + str(role_id), json=params)
+
+    def guild_role_modify_name(self, guild_id: int, role_id: int, name: str):
+        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'name': name})
+
+    def guild_role_modify_permissions(self, guild_id: int, role_id: int, permissions: int):
+        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'permissions': permissions})
+
+    def guild_role_modify_color(self, guild_id: int, role_id: int, color: int):
+        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'color': color})
+
+    def guild_role_modify_hoist(self, guild_id: int, role_id: int, hoist: bool):
+        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'hoist': hoist})
+
+    def guild_role_modify_mentionable(self, guild_id: int, role_id: int, mentionable: bool):
+        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'mentionable': mentionable})
+
+    def guild_role_delete(self, guild_id: int, role_id: int):
+        return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/roles/' + str(role_id))
+
+    def guild_prune_get_count(self, guild_id: int, days: int):
+        if not days > 1:
+            raise TypeError('Days argument should be larger then 1.')
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/prune', json={'days': days})
+
+    def guild_prune_begin(self, guild_id: int, days: int):
+        if not days > 1:
+            raise TypeError('Days argument should be larger then 1.')
+        return self.post(self.API_url + '/guilds/' + str(guild_id) + '/prune', json={'days': days})
+
+    def guild_voice_regions_get(self, guild_id: int):
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/regions')
+
+    def guild_invites_get(self, guild_id: int):
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/invites')
+
+    # TODO: guild integration calls. Probably after I figure out what they are
+    # TODO: guild embeded calls
+
+    # Channels REST API calls.
+
+    def channel_get(self, channel_id: int):
+        return self.get(self.API_url + '/channels/' + str(channel_id))
+
+    def channel_modify(self, channel_id: int, params: dict):
+        return self.patch(self.API_url + '/channels/' + str(channel_id), json=params)
+
+    def channel_modify_name(self, channel_id: int, name: str):
+        return self.channel_modify(channel_id=channel_id, params={'name': name})
+
+    def channel_modify_position(self, channel_id: int, position: int):
+        return self.channel_modify(channel_id=channel_id, params={'position': position})
+
+    def channel_modify_topic(self, channel_id: int, topic: str):
+        return self.channel_modify(channel_id=channel_id, params={'topic': topic})
+
+    def channel_modify_bitrate(self, channel_id: int, bitrate: int):
+        return self.channel_modify(channel_id=channel_id, params={'bitrate': bitrate})
+
+    def channel_modify_userlimit(self, channel_id: int, userlimit: int):
+        return self.channel_modify(channel_id=channel_id, params={'userlimit': userlimit})
+
+    def channel_delete(self, channel_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id))
+
+    def channel_messages_get(self, channel_id: int, limit: int = None, around: int = None,
+                             before: int = None, after: int = None):
+        params = {}
+        if limit is not None:
+            params['limit'] = limit
+        if around is not None:
+            params['around'] = around
+        elif before is not None:
+            params['before'] = before
+        elif after is not None:
+            params['after'] = after
+        return self.get(self.API_url + '/channels/' + str(channel_id) + '/messages', json=params or None)
+
+    def channel_message_get(self, channel_id: int, message_id: int):
+        return self.get(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id))
+
+    def channel_message_create(self, channel_id: int, content: str, nonce: bool = None, tts: bool = None,
+                               file: bytes = None, embed: dict = None):
+        if len(content) > 2000:
+            raise TypeError('Message length cannot exceed 2000 characters.')
+        params = {'content': content}
+        if nonce is not None:
+            params['nonce'] = nonce
+        if tts is not None:
+            params['tts'] = tts
+        if embed is not None:
+            params['embed'] = embed
+        return self.post(self.API_url + '/channels/' + str(channel_id) + '/messages', files=file, json=params)
+
+    def channel_message_reaction_create(self, channel_id: int, message_id: int, emoji_id: int):
+        return self.put(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id) + '/reactions/'
+                        + str(emoji_id) + '/@me')
+
+
 
     def patchEditMessage(self, channelId, messageId, content=None, embed=None):
         json_params = {}
-        if content: json_params['content'] = content
-        if embed: json_params['embed'] = embed
+        if content:
+            json_params['content'] = content
+        if embed:
+            json_params['embed'] = embed
         return self.patch(self.API_url + '/channels/' + str(channelId) + '/messages/' + str(messageId), json=json_params)
 
     def getGatewayBot(self):
@@ -165,5 +266,5 @@ class DiscordSession(requests.Session):
 
 
 
-def makeAuthorizationURL(id):
-    return 'https://discordapp.com/api/oauth2/authorize?client_id=' + str(id) + '&scope=bot&permissions=0'
+def makeAuthorizationURL(bot_id):
+    return 'https://discordapp.com/api/oauth2/authorize?client_id=' + str(bot_id) + '&scope=bot&permissions=0'

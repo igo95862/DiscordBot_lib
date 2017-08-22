@@ -92,7 +92,7 @@ class DiscordWebsocket:
         await self.websocket.send(json.dumps({'op': 8, 'd': {
             "guild_id": guild_id,
             "query": query,
-            "limit": 0
+            "limit": limit
         }}))
 
 
