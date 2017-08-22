@@ -117,7 +117,7 @@ class DiscordSession(requests.Session):
     def guild_member_role_remove(self, guild_id: int, user_id: int, role_id: int):
         return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id) + '/roles/' + str(role_id))
 
-    def guild_member_kick(self, guild_id: int, user_id: int):
+    def guild_member_remove(self, guild_id: int, user_id: int):
         return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id))
 
     def guild_bans_get(self, guild_id: int):
@@ -131,6 +131,28 @@ class DiscordSession(requests.Session):
     def guild_ban_remove(self, guild_id: int, user_id: int):
         return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/bans/' + str(user_id))
 
+    def guild_roles_get(self, guild_id: int):
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/roles')
+
+    def guild_role_create(self, guild_id: int, permissions: int = None, color: int = None,
+                          hoist: bool = None, mentionable: bool = None):
+        paramas = {}
+        if permissions is not None:
+            paramas['permissions'] = permissions
+        if permissions is not None:
+            paramas['color'] = color
+        if permissions is not None:
+            paramas['hoist'] = hoist
+        if permissions is not None:
+            paramas['mentionable'] = mentionable
+        return self.post(self.API_url + '/guilds/' + str(guild_id) + '/roles', json=paramas or None)
+
+    def guild_role_position_modify(self, guild_id: int, role_id: int, position: int):
+        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/roles', json={'id': role_id,
+                                                                                      'position': position})
+
+    def guild_role_modify(self):
+        pass
 
     def patchEditMessage(self, channelId, messageId, content=None, embed=None):
         json_params = {}
