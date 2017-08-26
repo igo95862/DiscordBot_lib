@@ -331,6 +331,18 @@ class DiscordSession(requests.Session):
     def dm_channel_user_remove(self, channel_id: int, user_id: int):
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/recipients/' + str(user_id))
 
+    # Invite REST API calls
+
+    def invite_get(self, invite_id: int):
+        return self.get(self.API_url + '/invites/' + str(invite_id))
+
+    def invite_delete(self, invite_id: int):
+        return self.delete(self.API_url + '/invites/' + str(invite_id))
+
+    def invite_accept(self, invite_id: int):
+        return self.post(self.API_url + '/invites/' + str(invite_id))
+
+
     def getGatewayBot(self):
         return self.get(self.API_url + '/gateway/bot')
 
