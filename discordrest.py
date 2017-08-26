@@ -357,8 +357,33 @@ class DiscordSession(requests.Session):
     def webhook_get(self, webhook_id: int):
         return self.get(self.API_url + '/webhooks/' + str(webhook_id))
 
-    def webhook_get_token(self, webhook_id: int, webhook_token: int):
+    def webhook_token_get(self, webhook_id: int, webhook_token: int):
         return self.get(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token))
+
+    def wenhook_modify(self, webhook_id: int, name: str = None, avatar: bytes = None):
+        params = {}
+        if name is not None:
+            params['name'] = name
+        if avatar is not None:
+            params['avatar'] = avatar
+        return self.patch(self.API_url + '/webhooks/' + str(webhook_id), json=params)
+
+    def webhook_token_modify(self, webhook_id: int, webhook_token: int, name: str = None, avatar: bytes = None):
+        params = {}
+        if name is not None:
+            params['name'] = name
+        if avatar is not None:
+            params['avatar'] = avatar
+        return self.patch(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token), json=params)
+
+    def webhook_delete(self, webhook_id: int):
+        return self.delete(self.API_url + '/webhooks/' + str(webhook_id))
+
+    def webhook_token_delete_(self, webhook_id: int, webhook_token: int):
+        return self.delete(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token))
+
+    def webhook_execute(self, webhook_id: int, webhook_token: int):
+        pass
 
     # Special calls
 
