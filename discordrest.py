@@ -342,6 +342,45 @@ class DiscordSession(requests.Session):
     def invite_accept(self, invite_id: int):
         return self.post(self.API_url + '/invites/' + str(invite_id))
 
+    # Webhook REST API calls
+
+    def webhook_create(self, channel_id: int, name: str, avatar: bytes = None):
+        return self.post(self.API_url + '/channels/' + str(channel_id) + '/webhooks',
+                         json={'name': name, 'avatar': avatar})
+
+    def webhook_get_channel(self, channel_id: int):
+        return self.get(self.API_url + '/channels/' + str(channel_id) + '/webhooks')
+
+    def webhook_get_guild(self, guild_id: int):
+        return self.get(self.API_url + '/channels/' + str(guild_id) + '/webhooks')
+
+    def webhook_get(self, webhook_id: int):
+        return self.get(self.API_url + '/webhooks/' + str(webhook_id))
+
+    def webhook_get_token(self, webhook_id: int, webhook_token: int):
+        return self.get(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token))
+
+    # Special calls
+
+    def voice_regions_get(self)->requests.Response:
+        return self.get(self.API_url + '/voice/regions')
+
+    def audit_log_get(self, guild_id: int, filter_user_id: int = None, filter_action_type: int = None,
+                      filter_before_entry_id: int = None, limit: int = None):
+        params = {}
+        if limit is not None:
+            if 1 <= limit <= 100:
+                params['limit'] = limit
+            else:
+                raise TypeError('Number of returned entries must be between 1 and 100')
+        if filter_user_id is not None:
+            params['user_id'] = filter_user_id
+        if filter_action_type is not None:
+            params['action_type'] = filter_action_type
+        if filter_before_entry_id is not None:
+            params['before'] = filter_before_entry_id
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/audit-logs', json=params or None)
+
 
     def getGatewayBot(self):
         return self.get(self.API_url + '/gateway/bot')
