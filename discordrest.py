@@ -251,15 +251,85 @@ class DiscordSession(requests.Session):
         return self.put(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id) + '/reactions/'
                         + str(emoji_id) + '/@me')
 
+    def channel_message_reaction_my_delete(self, channel_id: int, message_id: int, emoji_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
+                           + '/reactions/' + str(emoji_id) + '/@me')
 
+    def channel_message_reaction_delete(self, channel_id: int, message_id: int, user_id: int, emoji_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
+                           + '/reactions/' + str(emoji_id) + '/' + str(user_id))
 
-    def patchEditMessage(self, channelId, messageId, content=None, embed=None):
-        json_params = {}
-        if content:
-            json_params['content'] = content
+    def channel_message_reaction_get_users(self, channel_id: int, message_id: int, emoji_id: int):
+        return self.get(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id) + '/reactions/'
+                        + str(emoji_id))
+
+    def channel_message_reaction_delete_all(self, channel_id: int, message_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
+                           + '/reactions')
+
+    def channel_message_edit(self, channel_id: int, message_id: int, content: str=None, embed: dict=None):
+        if len(content) > 2000:
+            raise TypeError('Message length cannot exceed 2000 characters.')
+        params = {}
+        if content is not None:
+            if len(content) > 2000:
+                raise TypeError('Message length cannot exceed 2000 characters.')
+            params['content'] = content
         if embed:
-            json_params['embed'] = embed
-        return self.patch(self.API_url + '/channels/' + str(channelId) + '/messages/' + str(messageId), json=json_params)
+            params['embed'] = embed
+        return self.patch(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id), json=params or None)
+
+    def channel_message_delete(self, channel_id: int, message_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id))
+
+    def channel_message_bulk_delete(self, channel_id: int, messages_array: list):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/bulk-delete',
+                           json={'messages': messages_array})
+
+    def channel_permissions_overwrite_edit(self, channel_id: int, overwrite_id: int, allow_permissions: int,
+                                           deny_permissions: int, type_of_permissions: str):
+        if type_of_permissions is not 'member' or type_of_permissions is not 'role':
+            raise TypeError('Permission type must be "member" for users or "role" for roles')
+        return self.put(self.API_url + '/channels/' + str(channel_id) + '/permissions/' + str(overwrite_id),
+                        json={'allow': allow_permissions, 'deny': deny_permissions, 'type': type_of_permissions})
+
+    def channel_permissions_overwrite_delete(self, channel_id: int, overwrite_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/permissions/' + str(overwrite_id))
+
+    def channel_invites_get(self, channel_id: int):
+        return self.get(self.API_url + '/channels/' + str(channel_id) + '/invites')
+
+    def channel_invite_create(self, channel_id: int, max_age: int = None, max_uses: int = None,
+                              temporary_invite: bool = None, unique: bool = None):
+        params={}
+        if max_age is not None:
+            params['max_age'] = max_age
+        if max_uses is not None:
+            params['max_uses'] = max_uses
+        if temporary_invite is not None:
+            params['temporary'] = temporary_invite
+        if unique is not None:
+            params['unique'] = unique
+        return self.post(self.API_url + '/channels/' + str(channel_id) + '/invites', json=params)
+
+    def channel_typing_start(self, channel_id: int):
+        return self.post(self.API_url + '/channels/' + str(channel_id) + '/typing')
+
+    def channel_pins_get(self, channel_id: int):
+        return self.get(self.API_url + '/channels/' + str(channel_id) + '/pins')
+
+    def channel_pins_add(self, channel_id: int, message_id: int):
+        return self.put(self.API_url + '/channels/' + str(channel_id) + '/pins/' + str(message_id))
+
+    def channel_pins_delete(self, channel_id: int, message_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/pins/' + str(message_id))
+
+    def dm_channel_user_add(self, channel_id: int, user_id: int, access_token: str, user_nick: str):
+        return self.put(self.API_url + '/channels/' + str(channel_id) + '/recipients/' + str(user_id),
+                        json={'access_token': access_token, 'nick': user_nick})
+
+    def dm_channel_user_remove(self, channel_id: int, user_id: int):
+        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/recipients/' + str(user_id))
 
     def getGatewayBot(self):
         return self.get(self.API_url + '/gateway/bot')
