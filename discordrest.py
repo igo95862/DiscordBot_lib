@@ -229,7 +229,7 @@ class DiscordSession(requests.Session):
             params['before'] = before
         elif after is not None:
             params['after'] = after
-        return self.get(self.API_url + '/channels/' + str(channel_id) + '/messages', json=params or None)
+        return self.get(self.API_url + '/channels/' + str(channel_id) + '/messages', params=params or None)
 
     def channel_message_get(self, channel_id: int, message_id: int):
         return self.get(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id))
