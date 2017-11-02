@@ -18,16 +18,14 @@ identity_template = {
 }
 
 
-
-
 class DiscordWebsocket:
     def __init__(self, token,
                  socket_url='wss://gateway.discord.gg/?v=6&encoding=json',
-                 presence = {'status': 'online', 'afk': False}.copy(),
-                 shard_num = 0, shard_total = 1,
+                 presence={'status': 'online', 'afk': False}.copy(),
+                 shard_num=0, shard_total=1,
                  receive_queue=None, block_receive_queue=False,
                  event_loop=None,
-                 discard_events = False):
+                 discard_events=False):
 
         self.token = token
         self.socket_url = socket_url
@@ -52,6 +50,8 @@ class DiscordWebsocket:
         self.heartbeatInterval = None  # The value will be assigned later during init_socket coroutine
         self.heartbeat_sequence = None  # The value will be assigned later during init_socket coroutine
 
+        self.event_filters = []  # Event filters that can discard events
+
     async def connect(self):
         if self.event_loop is not None:
             self.websocket = await websockets.connect(self.socket_url, loop=self.event_loop)
@@ -60,7 +60,7 @@ class DiscordWebsocket:
         else:
             raise BaseException('No event loop defined.')
 
-    async def indetify(self):
+    async def identify(self):
         payload = identity_template.copy()
         payload['token'] = self.token
         payload['presence'] = self.presence
@@ -76,13 +76,18 @@ class DiscordWebsocket:
         while True:
             payload = await self.websocket.recv()
             if isinstance(payload, bytes):
-                payload = zlib.decompress(payload)
+                payload = str(zlib.decompress(payload), encoding='UTF-8')
             payload = json.loads(payload)
             if 's' in payload:
                 self.heartbeat_sequence = payload['s']
             if payload['op'] == 11 or self.discard_events:  # discarding the op11 heartbeat ACK
                 # or of discard events is true
                 continue
+
+            for f in self.event_filters:
+                if not f(payload):
+                    continue
+
             try:
                 self.receive_queue.put(payload, block=self.block_receive_queue)
             except queue.Full:
@@ -94,9 +99,6 @@ class DiscordWebsocket:
             "query": query,
             "limit": limit
         }}))
-
-
-
 
 
 class DiscordWebsocketThread:
@@ -113,7 +115,7 @@ class DiscordWebsocketThread:
                                                           self.discord_websocket_loop)
         connect_future.result(timeout=5)
 
-        identify_future = asyncio.run_coroutine_threadsafe(self.discord_websocket.indetify(),
+        identify_future = asyncio.run_coroutine_threadsafe(self.discord_websocket.identify(),
                                                            self.discord_websocket_loop)
         identify_future.result(timeout=5)
 
