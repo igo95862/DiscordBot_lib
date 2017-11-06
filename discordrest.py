@@ -283,7 +283,7 @@ class DiscordSession(requests.Session):
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id))
 
     def channel_message_bulk_delete(self, channel_id: int, messages_array: list):
-        return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/bulk-delete',
+        return self.post(self.API_url + '/channels/' + str(channel_id) + '/messages/bulk-delete',
                            json={'messages': messages_array})
 
     def channel_permissions_overwrite_edit(self, channel_id: int, overwrite_id: int, allow_permissions: int,
