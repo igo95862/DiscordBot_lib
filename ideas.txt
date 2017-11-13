@@ -1,0 +1,55 @@
+General ideas:
+	Modular design:
+		Each component should be reusable and interchangeable.
+		Example: discordrest should be usuable without socket.
+		(already does that) 
+		discordsocket should be useable without discordsocketthread
+	Ease of use:
+		Make whole discord be able to run in interpreter interactively
+
+#Modules:
+	
+discordrest:
+	Uses requests library to generate calls to discord rest API
+	In: integers, dicts and strings
+	Out: requests responce objects
+	
+	TODO:
+	1). Check if all function are correct. Some of them had json and http
+	params messed up
+	2). Fix couple function missing
+	3). Check the categories functions, they were added after the works
+	started.
+	4). Add documentation
+
+discordsocket:
+	Asyncronus websocket that connects to discord servers
+	
+	Has interface for event hooks that can catch events.
+	TODO:
+	1). Implement all the interactions that websocket can do
+	Only one is implemented so far: request guild members
+		Gateway Resume
+		Gateway Status Update
+		Gateway Voice State Update
+		
+	2). Implement reconnect.
+
+discordsocketthread:
+	Synconous interface for websocket
+	
+	TODO:
+	1). Carries same functionallity as discordsocket but in a syncronous
+	and thread safe manner
+	2). Separate in to new file
+
+discordbot:
+	Combines discordrest and discordwebsocketthread
+	
+	1). Implement rate limit. (maybe separated class?)
+	2). Sharding
+
+discordhigh:
+	High level abstractions: channel, messages, guilds
+
+	(?) maybe asynconous event hooks? 
