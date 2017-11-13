@@ -35,6 +35,11 @@ discordsocket:
 		
 	2). Implement reconnect.
 
+	Notes:
+
+	Socket sends full server info on connection. Generate high level
+	objects from that?
+
 discordsocketthread:
 	Synconous interface for websocket
 	

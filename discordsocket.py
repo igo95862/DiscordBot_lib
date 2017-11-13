@@ -18,6 +18,8 @@ identity_template = {
 }
 
 
+
+
 class DiscordWebsocket:
     def __init__(self, token,
                  socket_url='wss://gateway.discord.gg/?v=6&encoding=json',
@@ -40,8 +42,9 @@ class DiscordWebsocket:
         else:
             self.receive_queue = receive_queue
 
-        if event_loop is None: # Checking if event loop was passed in arguments
-            self.event_loop = None  #If no loop was passed to the constructor you must assign before connecting
+        if event_loop is None:  # Checking if event loop was passed in arguments
+            self.event_loop = asyncio.get_event_loop()
+            # If no loop was passed to the constructor default loop will be used
         else:
             self.event_loop = event_loop
 
@@ -50,7 +53,7 @@ class DiscordWebsocket:
         self.heartbeatInterval = None  # The value will be assigned later during init_socket coroutine
         self.heartbeat_sequence = None  # The value will be assigned later during init_socket coroutine
 
-        self.event_filters = []  # Event filters that can discard events
+        self.event_hooks = []  # Event hooks that other functions can use to be notified of events
 
     async def connect(self):
         if self.event_loop is not None:
@@ -84,9 +87,8 @@ class DiscordWebsocket:
                 # or of discard events is true
                 continue
 
-            for f in self.event_filters:
-                if not f(payload):
-                    continue
+            for f in self.event_hooks:
+                await f(payload)
 
             try:
                 self.receive_queue.put(payload, block=self.block_receive_queue)
@@ -94,11 +96,22 @@ class DiscordWebsocket:
                 continue
 
     async def request_guild_members(self, guild_id: int, query: str = '', limit: int = 0):
+        event = asyncio.Event()
+        event.result = None
+        async def func(x):
+            if x['t'] == 'GUILD_MEMBERS_CHUNK':
+                event.set()
+                event.result = x
+
+        self.event_hooks.append(func)
         await self.websocket.send(json.dumps({'op': 8, 'd': {
             "guild_id": guild_id,
             "query": query,
             "limit": limit
         }}))
+        await event.wait()
+        return event.result
+
 
 
 class DiscordWebsocketThread:
