@@ -53,8 +53,14 @@ discordbot:
 	
 	1). Implement rate limit. (maybe separated class?)
 	2). Sharding
+	3). Support functions such as constants
 
 discordhigh:
 	High level abstractions: channel, messages, guilds
 
 	(?) maybe asynconous event hooks? 
+
+
+discordvoicesocket:
+	Voice connection. Needs more investigation. Probably implement after
+	everything else is done.
