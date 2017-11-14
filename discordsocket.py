@@ -26,7 +26,7 @@ class DiscordWebsocket:
                  presence={'status': 'online', 'afk': False}.copy(),
                  shard_num=0, shard_total=1,
                  receive_queue=None, block_receive_queue=False,
-                 event_loop=None,
+                 event_loop: asyncio.AbstractEventLoop=None,
                  discard_events=False):
 
         self.token = token
@@ -55,27 +55,27 @@ class DiscordWebsocket:
 
         self.event_hooks = []  # Event hooks that other functions can use to be notified of events
 
-    async def connect(self):
+    async def _connect(self):
         if self.event_loop is not None:
             self.websocket = await websockets.connect(self.socket_url, loop=self.event_loop)
             self.helloPayload = json.loads(await self.websocket.recv())
             self.heartbeatInterval = self.helloPayload['d']['heartbeat_interval'] / 1000
         else:
-            raise BaseException('No event loop defined.')
+            raise Exception('No event loop defined.')
 
-    async def identify(self):
+    async def _identify(self):
         payload = identity_template.copy()
         payload['token'] = self.token
         payload['presence'] = self.presence
         payload['shard'] = [self.shard_num, self.shard_total]
         await self.websocket.send(json.dumps({'op': 2, 'd': payload}))
 
-    async def heartbeat_cycle(self):
+    async def _heartbeat_cycle(self):
         while True:
             await asyncio.sleep(self.heartbeatInterval)
             await self.websocket.send(json.dumps({'op': 1, 'd': self.heartbeat_sequence }))
 
-    async def receive_cycle(self):
+    async def _receive_cycle(self):
         while True:
             payload = await self.websocket.recv()
             if isinstance(payload, bytes):
@@ -94,6 +94,12 @@ class DiscordWebsocket:
                 self.receive_queue.put(payload, block=self.block_receive_queue)
             except queue.Full:
                 continue
+
+    async def init(self):
+        await self._connect()
+        await self._identify()
+        self.event_loop.create_task(self._receive_cycle())
+        self.event_loop.create_task(self._heartbeat_cycle())
 
     async def request_guild_members(self, guild_id: int, query: str = '', limit: int = 0):
         event = asyncio.Event()
@@ -124,18 +130,18 @@ class DiscordWebsocketThread:
         self.thread = threading.Thread(target=self.discord_websocket_loop.run_forever)
         self.thread.start()
 
-        connect_future = asyncio.run_coroutine_threadsafe(self.discord_websocket.connect(),
+        connect_future = asyncio.run_coroutine_threadsafe(self.discord_websocket._connect(),
                                                           self.discord_websocket_loop)
         connect_future.result(timeout=5)
 
-        identify_future = asyncio.run_coroutine_threadsafe(self.discord_websocket.identify(),
+        identify_future = asyncio.run_coroutine_threadsafe(self.discord_websocket._identify(),
                                                            self.discord_websocket_loop)
         identify_future.result(timeout=5)
 
-        self.hearbeat_future =  asyncio.run_coroutine_threadsafe(self.discord_websocket.heartbeat_cycle(),
+        self.hearbeat_future =  asyncio.run_coroutine_threadsafe(self.discord_websocket._heartbeat_cycle(),
                                                                  self.discord_websocket_loop)
-        self.receive_future = asyncio.run_coroutine_threadsafe(self.discord_websocket.receive_cycle(),
-                                                                self.discord_websocket_loop)
+        self.receive_future = asyncio.run_coroutine_threadsafe(self.discord_websocket._receive_cycle(),
+                                                               self.discord_websocket_loop)
 
     def request_guild_members(self, guild_id: int, query: str = '', limit: int = 0):
         return asyncio.run_coroutine_threadsafe(self.discord_websocket.request_guild_members(guild_id, query, limit),
@@ -184,7 +190,7 @@ class DiscordWebsocketsContainer():
         self.internalThread.start()
 
     async def init_socket(self):
-        self.websocket = await websockets.connect('wss://gateway.discord.gg/?v=6&encoding=json')
+        self.websocket = await websockets._connect('wss://gateway.discord.gg/?v=6&encoding=json')
 
         self.helloPayload = json.loads(await self.websocket.recv())
 
