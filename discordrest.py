@@ -406,11 +406,9 @@ class DiscordSession(requests.Session):
             params['before'] = filter_before_entry_id
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/audit-logs', json=params or None)
 
-
-    def getGatewayBot(self):
+    def gateway_bot_get(self):
         return self.get(self.API_url + '/gateway/bot')
 
 
-
-def makeAuthorizationURL(bot_id):
+def authorization_url_get(bot_id: int):
     return 'https://discordapp.com/api/oauth2/authorize?client_id=' + str(bot_id) + '&scope=bot&permissions=0'

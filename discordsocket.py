@@ -16,7 +16,7 @@ identity_template = {
 }
 
 
-class DiscordWebsocket:
+class DiscordSocket:
     def __init__(self, token,
                  socket_url='wss://gateway.discord.gg/?v=6&encoding=json',
                  presence={'status': 'online', 'afk': False}.copy(),
@@ -41,22 +41,31 @@ class DiscordWebsocket:
         self.heartbeat_interval = None  # The value will be assigned later during init_socket coroutine
         self.heartbeat_sequence = None  # The value will be assigned later during init_socket coroutine
 
+        self.ready_payload = None  # Assigned at _ready_event_trap
+        self.session_id = None   # Assigned at _ready_event_trap
+
         self.event_hooks = []  # Event hooks that other functions can use to be notified of events
+        #  Event hooks will be called with the dictionary payload each time a payload is recieved
+        #  If the hook returns True boolean the hook will be removed
 
     async def _connect(self):
-        if self.event_loop is not None:
-            self.websocket = await websockets.connect(self.socket_url, loop=self.event_loop)
-            self.hello_payload = json.loads(await self.websocket.recv())
-            self.heartbeat_interval = self.hello_payload['d']['heartbeat_interval'] / 1000
-        else:
-            raise Exception('No event loop defined.')
+        self.websocket = await websockets.connect(self.socket_url, loop=self.event_loop)
+        self.hello_payload = json.loads(await self.websocket.recv())
+        self.heartbeat_interval = self.hello_payload['d']['heartbeat_interval'] / 1000
 
     async def _identify(self):
         payload = identity_template.copy()
         payload['token'] = self.token
         payload['presence'] = self.presence
         payload['shard'] = [self.shard_num, self.shard_total]
+        self.event_hook_add(self._ready_event_trap)
         await self.websocket.send(json.dumps({'op': 2, 'd': payload}))
+
+    async def _ready_event_trap(self, payload: dict):
+        if ['t'] == 'READY':
+            self.ready_payload = payload
+            self.session_id = payload['d']['session_id']
+            return True
 
     async def _heartbeat_cycle(self):
         while True:
@@ -72,11 +81,12 @@ class DiscordWebsocket:
             if 's' in payload:
                 self.heartbeat_sequence = payload['s']
             if payload['op'] == 11:  # discarding the op11 heartbeat ACK
-                # or of discard events is true
                 continue
 
-            for f in self.event_hooks:
-                await f(payload)
+            self.event_hooks[:] = [x for x in self.event_hooks if not await x(payload)]
+            # NOTE: Right now event hooks block the receive queue. Maybe add a new function 'event_dispatcher'
+            # that will be called with create_task and will be passed the payload to distribute to events
+            # However, that might make events sequence be violated.
 
     async def init(self):
         await self._connect()
@@ -84,15 +94,20 @@ class DiscordWebsocket:
         self.event_loop.create_task(self._receive_cycle())
         self.event_loop.create_task(self._heartbeat_cycle())
 
+    def event_hook_add(self, coroutine):
+        self.event_hooks.append(coroutine)
+
     async def request_guild_members(self, guild_id: int, query: str = '', limit: int = 0):
+        # TODO: implement query and limit support
         event = asyncio.Event()
         event.result = None
+
         async def func(x):
             # TODO: check that guild is the one requested
             if x['t'] == 'GUILD_MEMBERS_CHUNK':
-                event.result = x
-                event.set()
-
+                if x['d']['guild_id'] == str(guild_id):
+                    event.result = x
+                    event.set()
 
         self.event_hooks.append(func)
         await self.websocket.send(json.dumps({'op': 8, 'd': {
@@ -139,12 +154,12 @@ class DiscordWebsocket:
         }
         )))
 
-    async def resume(self, ):
+    async def resume(self):
         return self.event_loop.create_task(self.websocket.send(json.dumps({
             'op': 6,
             'd': {
                 'token': self.token,
-                'session_id': None,  # TODO: Implement session id.
+                'session_id': self.session_id,
                 'seq': self.heartbeat_sequence
             }
 
