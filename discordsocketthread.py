@@ -6,7 +6,7 @@ from functools import partial as func_partial
 
 class DiscordSocketThread:
 
-    def _init(self, *args):
+    def __init__(self, *args):
 
         if type(args[0]) is str:
             # NOTE: check that the string has proper length and etc.?
