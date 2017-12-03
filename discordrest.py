@@ -1,6 +1,5 @@
 import requests
 
-
 class DiscordSession(requests.Session):
 
     def __init__(self, token: str):
@@ -40,7 +39,7 @@ class DiscordSession(requests.Session):
     def me_dm_create(self, recipient_id: int)->requests.Response:
         return self.post(self.API_url + '/users/@me/channels', json={'recipient_id': recipient_id})
 
-    def me_dm_create_group(self, access_tokens: typing.List[int], nicks: dict)->requests.Response:
+    def me_dm_create_group(self, access_tokens: list, nicks: dict)->requests.Response:
         # NOTE: Have not been tested.
         return self.post(self.API_url + '/users/@me/channels', json={'access_tokens': access_tokens, 'nicks': nicks})
 
@@ -49,17 +48,60 @@ class DiscordSession(requests.Session):
 
     # Guild REST API calls
 
-    def guild_create(self, )->requests.Response:
-        # TODO: implement guild create REST API call
-        raise NotImplementedError
+    def guild_create(self, guild_name: str, region: str = None, icon: str = None, verification_level: int = None
+                     , default_message_notifications: int = None, roles=None, channels=None)->requests.Response:
+        json_params = {'name': guild_name}
+        if region is not None:
+            json_params['region'] = region
+        if icon is not None:
+            json_params['icon'] = icon
+        if verification_level is not None:
+            json_params['verification_level'] = verification_level
+        if default_message_notifications is not None:
+            json_params['default_message_notifications'] = default_message_notifications
+        if roles is not None:
+            json_params['roles'] = roles
+        if channels is not None:
+            json_params['channels'] = channels
+
+        return self.post(self.API_url + '/guilds', json=json_params)
 
     def guild_get(self, guild_id: int)->requests.Response:
         return self.get(self.API_url + '/guilds/' + str(guild_id))
 
-    def guild_modify(self, guild_id: int, params: dict)->requests.Response:
-        # TODO: Does not check or provide interface to what is being changed. Probably to do later
-        # IDEA: Have a separated function for modifying one thing
+    def _guild_modify(self, guild_id: int, params: dict)->requests.Response:
         return self.patch(self.API_url + '/guilds/' + str(guild_id), json=params)
+
+    # Guild modify sub functions
+    def guild_modify_name(self, guild_id: int, new_name: str)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'name': new_name})
+
+    def guild_modify_region(self, guild_id: int, new_region:str)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'region': new_region})
+
+    def guild_modify_verification_level(self, guild_id: int, new_level: int)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'verification_level': new_level})
+
+    def guild_modify_default_notification_level(self, guild_id: int, new_level: int)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'default_message_notifications': new_level})
+
+    def guild_modify_afk_channel_id(self, guild_id: int, new_afk_channel_id: int)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'afk_channel_id': new_afk_channel_id})
+
+    def guild_modify_afk_timeout(self, guild_id: int, new_afk_timeout: int)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'afk_timeout': new_afk_timeout})
+
+    def guild_modify_icon(self, guild_id: int, new_icon: str)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'icon': new_icon})
+
+    def guild_modify_owner_id(self, guild_id: int, new_owner_id: int)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'owner_id': new_owner_id})
+
+    def guild_modify_splash(self, guild_id: int, new_splash: str)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'splash': new_splash})
+
+    def guild_modify_system_channel_id(self, guild_id: int, new_system_channel_id: int)->requests.Response:
+        return self._guild_modify(guild_id=guild_id, params={'system_channel_id': new_system_channel_id})
 
     def guild_delete(self, guild_id: int)->requests.Response:
         return self.delete(self.API_url + '/guilds/' + str(guild_id))
@@ -67,64 +109,112 @@ class DiscordSession(requests.Session):
     def guild_channels_get(self, guild_id: int)->requests.Response:
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/channels')
 
-    def guild_channel_create(self, guild_id: int, params: dict)->requests.Response:
+    def _guild_channel_create(self, guild_id: int, params: dict)->requests.Response:
+        # NOTE: this function should not be called directly
         return self.post(self.API_url + '/guilds/' + str(guild_id) + '/channels', json=params)
 
-    def guild_channel_create_text(self, guild_id: int, name: str, permission_overwrites: dict = None)->requests.Response:
-        params = {'name': name, 'type': 'text'}
+    def guild_channel_create_text(self, guild_id: int, name: str, permission_overwrites: dict = None,
+                                  parent_id: int = None, nsfw: bool = None)->requests.Response:
+        new_channel_params = {'name': name, 'type': 0}
         if permission_overwrites is not None:
-            params['permission_overwrites'] = permission_overwrites
-        return self.guild_channel_create(guild_id, {'name': name, })
+            new_channel_params['permission_overwrites'] = permission_overwrites
+        if parent_id is not None:
+            new_channel_params['parent_id'] = parent_id
+        if nsfw is not None:
+            new_channel_params['nsfw'] = nsfw
 
-    def guild_channel_create_voice(self)->requests.Response:
-        pass  # TODO: create voice channel function
+        return self._guild_channel_create(guild_id=guild_id, params=new_channel_params)
 
-    def guild_channels_position_modify(self, guild_id: int, channel_id: int, position: int)->requests.Response:
-        # NOTE: Test if this call accepts multiple channels
-        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/channels', json={'id': channel_id,
-                                                                                        'position': position})
+    def guild_channel_create_voice(self, guild_id: int, name: str, permission_overwrites: dict = None,
+                                   parent_id: int = None, nsfw: bool = None,
+                                   bitrate: int = None, user_limit: int = None)->requests.Response:
+        new_channel_params = {'name': name, 'type': 2}
+        if permission_overwrites is not None:
+            new_channel_params['permission_overwrites'] = permission_overwrites
+        if parent_id is not None:
+            new_channel_params['parent_id'] = parent_id
+        if nsfw is not None:
+            new_channel_params['nsfw'] = nsfw
+        if bitrate is not None:
+            new_channel_params['bitrate'] = bitrate
+        if user_limit is not None:
+            new_channel_params['user_limit'] = user_limit
+
+        return self._guild_channel_create(guild_id=guild_id, params=new_channel_params)
+
+    def guild_channel_create_category(self, guild_id: int, name: str, permission_overwrites: dict = None,
+                                      nsfw: bool = None)->requests.Response:
+        # NOTE: Category channels can't have parents. Not documented in API reference but was found experimentally
+        new_channel_params = {'name': name, 'type': 4}
+        if permission_overwrites is not None:
+            new_channel_params['permission_overwrites'] = permission_overwrites
+        if nsfw is not None:
+            new_channel_params['nsfw'] = nsfw
+
+        return self._guild_channel_create(guild_id=guild_id, params=new_channel_params)
+
+    def guild_channels_position_modify(self, guild_id: int, list_of_channels: list)->requests.Response:
+        # NOTE: This call requires list of dictionaries with with field of id of the channel and its position.
+        # Position integers are independent of each other.
+        # Multiple channels can have same position. There can be gaps between them.
+        # Position integer can also be negative.
+        # Unlike what documentation says you can pass a single channel to this call.
+        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/channels', json=list_of_channels)
 
     def guild_member_get(self, guild_id: int, user_id: int)->requests.Response:
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id))
 
     def guild_members_list(self, guild_id: int, limit: int = None, after: int = None)->requests.Response:
+        # NOTE: default amount of users returned is just one
         params = {}
         if limit is not None:
             params['limit'] = limit
         if after is not None:
             params['after'] = after
-        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/members', json=params or None)
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/members', params=params or None)
 
-    def guild_member_add(self)->requests.Response:
-        # TODO: Add guild member function. Probably after O2Auth gets implemented.
-        raise NotImplementedError
+    def guild_member_add(self, guild_id: int, user_id: int,access_token: str, nick: str = None, roles: list = None,
+                         mute: bool = None, deaf: bool = None)->requests.Response:
+        params = {'access_token': access_token}
+        if nick is not None:
+            params['nick'] = nick
+        if roles is not None:
+            params['roles'] = roles
+        if mute is not None:
+            params['mute'] = mute
+        if deaf is not None:
+            params['deaf'] = deaf
+        return self.put(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id), json=params)
 
-    def guild_member_modify(self, guild_id: int, user_id: int, params: dict)->requests.Response:
+    def _guild_member_modify(self, guild_id: int, user_id: int, params: dict)->requests.Response:
         return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id), json=params)
 
     def guild_member_modify_nick(self, guild_id: int, user_id: int, nick_to_set: str)->requests.Response:
-        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'nick': nick_to_set})
+        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'nick': nick_to_set})
 
     def guild_member_modify_roles(self, guild_id: int, user_id: int, roles: list)->requests.Response:
-        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'roles': roles})
+        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'roles': roles})
 
     def guild_member_modify_mute(self, guild_id: int, user_id: int, mute_bool: bool)->requests.Response:
-        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'mute': mute_bool})
+        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'mute': mute_bool})
 
     def guild_member_modify_deaf(self, guild_id: int, user_id: int, deaf_bool: bool)->requests.Response:
-        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'deaf': deaf_bool})
+        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'deaf': deaf_bool})
 
     def guild_member_modify_move(self, guild_id: int, user_id: int, channel_move_to: int)->requests.Response:
-        return self.guild_member_modify(guild_id=guild_id, user_id=user_id, params={'channel_id': channel_move_to})
+        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'channel_id': channel_move_to})
 
     def guild_member_me_nick_set(self, guild_id: int, nick_to_set: str)->requests.Response:
+        # IDEA: move to other me functions?
         return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/members/@me/nick', json={'nick': nick_to_set})
 
     def guild_member_role_add(self, guild_id: int, user_id: int, role_id: int)->requests.Response:
-        return self.put(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id) + '/roles/' + str(role_id))
+        return self.put(self.API_url + '/guilds/' + str(guild_id) + '/members/'
+                        + str(user_id) + '/roles/' + str(role_id))
 
     def guild_member_role_remove(self, guild_id: int, user_id: int, role_id: int)->requests.Response:
-        return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id) + '/roles/' + str(role_id))
+        return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/members/'
+                           + str(user_id) + '/roles/' + str(role_id))
 
     def guild_member_remove(self, guild_id: int, user_id: int)->requests.Response:
         return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/members/' + str(user_id))
@@ -135,7 +225,8 @@ class DiscordSession(requests.Session):
     def guild_ban_create(self, guild_id: int, user_id: int, delete_messages_days=None)->requests.Response:
         if delete_messages_days is not None:
             delete_messages_days = {'delete-message-days': delete_messages_days}
-        return self.put(self.API_url + '/guilds/' + str(guild_id) + '/bans/' + str(user_id), json=delete_messages_days)
+        return self.put(self.API_url + '/guilds/' + str(guild_id) + '/bans/'
+                        + str(user_id), params=delete_messages_days)
 
     def guild_ban_remove(self, guild_id: int, user_id: int)->requests.Response:
         return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/bans/' + str(user_id))
@@ -156,40 +247,35 @@ class DiscordSession(requests.Session):
             paramas['mentionable'] = mentionable
         return self.post(self.API_url + '/guilds/' + str(guild_id) + '/roles', json=paramas or None)
 
-    def guild_role_position_modify(self, guild_id: int, role_id: int, position: int)->requests.Response:
-        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/roles', json={'id': role_id,
-                                                                                      'position': position})
+    def guild_role_position_modify(self, guild_id: int, list_of_role_positions: list)->requests.Response:
+        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/roles', json=list_of_role_positions)
 
-    def guild_role_modify(self, guild_id: int, role_id: int, params: dict)->requests.Response:
+    def _guild_role_modify(self, guild_id: int, role_id: int, params: dict)->requests.Response:
         return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/roles/' + str(role_id), json=params)
 
     def guild_role_modify_name(self, guild_id: int, role_id: int, name: str)->requests.Response:
-        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'name': name})
+        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'name': name})
 
     def guild_role_modify_permissions(self, guild_id: int, role_id: int, permissions: int)->requests.Response:
-        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'permissions': permissions})
+        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'permissions': permissions})
 
     def guild_role_modify_color(self, guild_id: int, role_id: int, color: int)->requests.Response:
-        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'color': color})
+        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'color': color})
 
     def guild_role_modify_hoist(self, guild_id: int, role_id: int, hoist: bool)->requests.Response:
-        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'hoist': hoist})
+        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'hoist': hoist})
 
     def guild_role_modify_mentionable(self, guild_id: int, role_id: int, mentionable: bool)->requests.Response:
-        return self.guild_role_modify(guild_id=guild_id, role_id=role_id, params={'mentionable': mentionable})
+        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'mentionable': mentionable})
 
     def guild_role_delete(self, guild_id: int, role_id: int)->requests.Response:
         return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/roles/' + str(role_id))
 
     def guild_prune_get_count(self, guild_id: int, days: int)->requests.Response:
-        if not days > 1:
-            raise TypeError('Days argument should be larger then 1.')
-        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/prune', json={'days': days})
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/prune', params={'days': days})
 
     def guild_prune_begin(self, guild_id: int, days: int)->requests.Response:
-        if not days > 1:
-            raise TypeError('Days argument should be larger then 1.')
-        return self.post(self.API_url + '/guilds/' + str(guild_id) + '/prune', json={'days': days})
+        return self.post(self.API_url + '/guilds/' + str(guild_id) + '/prune', params={'days': days})
 
     def guild_voice_regions_get(self, guild_id: int)->requests.Response:
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/regions')

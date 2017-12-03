@@ -11,6 +11,7 @@ General ideas:
 	
 discordrest:
 	Uses requests library to generate calls to discord rest API
+	Does not make internal checks on data passed. The call with 400-500 HTTP errors will be returned
 	In: integers, dicts and strings
 	Out: requests responce objects
 	
