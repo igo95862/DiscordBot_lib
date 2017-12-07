@@ -283,8 +283,41 @@ class DiscordSession(requests.Session):
     def guild_invites_get(self, guild_id: int)->requests.Response:
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/invites')
 
-    # TODO: guild integration calls. Probably after I figure out what they are
-    # TODO: guild embeded calls
+    # NOTE: guild integration calls had not been tested.
+
+    def guild_integrations_get(self, guild_id: int)->requests.Response:
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/integrations')
+
+    def guild_integration_create(self, guild_id: int, integration_type: str, integration_id: int)->requests.Response:
+        return self.post(self.API_url + '/guilds/' + str(guild_id) + '/integrations', json={'type': integration_type,
+                                                                                            'id': integration_id})
+
+    def guild_integration_modify(self, guild_id: int, integration_id: int, expire_behavior: int,
+                                 expire_grace_period: int, enable_emoticons: int)->requests.Response:
+        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/integrations/' + str(integration_id),
+                          json={
+                              'expire_behavior': expire_behavior,
+                              'expire_grace_period': expire_grace_period,
+                              'enable_emoticons': enable_emoticons
+                          })
+
+    def guild_integration_delete(self, guild_id: int, integration_id: int):
+        return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/integrations/' + str(integration_id))
+
+    def guild_integration_sync(self, guild_id: int, integration_id: int):
+        return self.post(self.API_url + '/guilds/' + str(guild_id) + '/integrations/' + str(integration_id) + '/sync')
+
+    def guild_embed_get(self, guild_id: int):
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/embed')
+
+    def guild_embed_modify(self, guild_id: int, enabled: bool = None, channel_id: int = None):
+        params = {}
+        if enabled is not None:
+            params['enabled'] = enabled
+        if channel_id is not None:
+            params['channel_id'] = channel_id
+
+        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/embed', json=params)
 
     # Channels REST API calls.
 

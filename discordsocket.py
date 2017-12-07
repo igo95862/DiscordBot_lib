@@ -7,9 +7,9 @@ import platform
 identity_template = {
     'properties':
         {
-        "$os": platform.system() + ' ' + platform.version() + ' ' + platform.machine(),
-        "$device": platform.python_implementation() + ' ' + platform.python_version(),
-        "$browser": "Discord Python Library"
+            "$os": platform.system() + ' ' + platform.version() + ' ' + platform.machine(),
+            "$device": platform.python_implementation() + ' ' + platform.python_version(),
+            "$browser": "Discord Python Library"
         },
     'compress': True,
     "large_threshold": 250,
@@ -45,7 +45,7 @@ class DiscordSocket:
         self.session_id = None   # Assigned at _ready_event_trap
 
         self.event_hooks = []  # Event hooks that other functions can use to be notified of events
-        #  Event hooks will be called with the dictionary payload each time a payload is recieved
+        #  Event hooks will be called with the dictionary payload each time a payload is received
         #  If the hook returns True boolean the hook will be removed
 
     async def _connect(self):
