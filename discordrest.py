@@ -324,23 +324,29 @@ class DiscordSession(requests.Session):
     def channel_get(self, channel_id: int)->requests.Response:
         return self.get(self.API_url + '/channels/' + str(channel_id))
 
-    def channel_modify(self, channel_id: int, params: dict)->requests.Response:
+    def _channel_modify(self, channel_id: int, params: dict)->requests.Response:
         return self.patch(self.API_url + '/channels/' + str(channel_id), json=params)
 
     def channel_modify_name(self, channel_id: int, name: str)->requests.Response:
-        return self.channel_modify(channel_id=channel_id, params={'name': name})
+        return self._channel_modify(channel_id=channel_id, params={'name': name})
 
     def channel_modify_position(self, channel_id: int, position: int)->requests.Response:
-        return self.channel_modify(channel_id=channel_id, params={'position': position})
+        return self._channel_modify(channel_id=channel_id, params={'position': position})
 
     def channel_modify_topic(self, channel_id: int, topic: str)->requests.Response:
-        return self.channel_modify(channel_id=channel_id, params={'topic': topic})
+        return self._channel_modify(channel_id=channel_id, params={'topic': topic})
 
     def channel_modify_bitrate(self, channel_id: int, bitrate: int)->requests.Response:
-        return self.channel_modify(channel_id=channel_id, params={'bitrate': bitrate})
+        return self._channel_modify(channel_id=channel_id, params={'bitrate': bitrate})
 
-    def channel_modify_userlimit(self, channel_id: int, userlimit: int)->requests.Response:
-        return self.channel_modify(channel_id=channel_id, params={'userlimit': userlimit})
+    def channel_modify_user_limit(self, channel_id: int, userlimit: int)->requests.Response:
+        return self._channel_modify(channel_id=channel_id, params={'userlimit': userlimit})
+
+    def channel_modify_permission_overwrites(self, channel_id: int, overwrite_array: list):
+        return self._channel_modify(channel_id=channel_id, params={'permission_overwrites': overwrite_array})
+
+    def channel_modify_parent_id(self, channel_id: int, parent_id: int):
+        return self._channel_modify(channel_id=channel_id, params={'parent_id': parent_id})
 
     def channel_delete(self, channel_id: int)->requests.Response:
         return self.delete(self.API_url + '/channels/' + str(channel_id))
@@ -363,8 +369,7 @@ class DiscordSession(requests.Session):
 
     def channel_message_create(self, channel_id: int, content: str, nonce: bool = None, tts: bool = None,
                                file: bytes = None, embed: dict = None)->requests.Response:
-        if len(content) > 2000:
-            raise TypeError('Message length cannot exceed 2000 characters.')
+        # TODO: check if files can be actually used. Fix if they can't.
         params = {'content': content}
         if nonce is not None:
             params['nonce'] = nonce
@@ -374,49 +379,52 @@ class DiscordSession(requests.Session):
             params['embed'] = embed
         return self.post(self.API_url + '/channels/' + str(channel_id) + '/messages', files=file, json=params)
 
-    def channel_message_reaction_create(self, channel_id: int, message_id: int, emoji_id: int)->requests.Response:
+    def channel_message_reaction_create(self, channel_id: int, message_id: int, emoji: int)->requests.Response:
         return self.put(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id) + '/reactions/'
-                        + str(emoji_id) + '/@me')
+                        + str(emoji) + '/@me')
 
-    def channel_message_reaction_my_delete(self, channel_id: int, message_id: int, emoji_id: int)->requests.Response:
+    def channel_message_reaction_my_delete(self, channel_id: int, message_id: int, emoji: int)->requests.Response:
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
-                           + '/reactions/' + str(emoji_id) + '/@me')
+                           + '/reactions/' + str(emoji) + '/@me')
 
-    def channel_message_reaction_delete(self, channel_id: int, message_id: int, user_id: int, emoji_id: int)->requests.Response:
+    def channel_message_reaction_delete(self, channel_id: int, message_id: int, user_id: int, emoji: int)->requests.Response:
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
-                           + '/reactions/' + str(emoji_id) + '/' + str(user_id))
+                           + '/reactions/' + str(emoji) + '/' + str(user_id))
 
-    def channel_message_reaction_get_users(self, channel_id: int, message_id: int, emoji_id: int)->requests.Response:
+    def channel_message_reaction_get_users(self, channel_id: int, message_id: int, emoji: int, before: int = None,
+                                           after: int = None, limit: int = None)->requests.Response:
+        params={}
+        if before is not None:
+            params['before'] = before
+        if after is not None:
+            params['after'] = after
+        if limit is not None:
+            params['limit'] = limit
         return self.get(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id) + '/reactions/'
-                        + str(emoji_id))
+                        + str(emoji), params=params or None)
 
     def channel_message_reaction_delete_all(self, channel_id: int, message_id: int)->requests.Response:
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
                            + '/reactions')
 
     def channel_message_edit(self, channel_id: int, message_id: int, content: str=None, embed: dict=None)->requests.Response:
-        if len(content) > 2000:
-            raise TypeError('Message length cannot exceed 2000 characters.')
         params = {}
         if content is not None:
-            if len(content) > 2000:
-                raise TypeError('Message length cannot exceed 2000 characters.')
             params['content'] = content
-        if embed:
+        if embed is not None:
             params['embed'] = embed
-        return self.patch(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id), json=params or None)
+        return self.patch(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id),
+                          json=params or None)
 
     def channel_message_delete(self, channel_id: int, message_id: int)->requests.Response:
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id))
 
     def channel_message_bulk_delete(self, channel_id: int, messages_array: list)->requests.Response:
         return self.post(self.API_url + '/channels/' + str(channel_id) + '/messages/bulk-delete',
-                           json={'messages': messages_array})
+                         json={'messages': messages_array})
 
     def channel_permissions_overwrite_edit(self, channel_id: int, overwrite_id: int, allow_permissions: int,
                                            deny_permissions: int, type_of_permissions: str)->requests.Response:
-        if type_of_permissions is not 'member' or type_of_permissions is not 'role':
-            raise TypeError('Permission type must be "member" for users or "role" for roles')
         return self.put(self.API_url + '/channels/' + str(channel_id) + '/permissions/' + str(overwrite_id),
                         json={'allow': allow_permissions, 'deny': deny_permissions, 'type': type_of_permissions})
 
@@ -428,7 +436,7 @@ class DiscordSession(requests.Session):
 
     def channel_invite_create(self, channel_id: int, max_age: int = None, max_uses: int = None,
                               temporary_invite: bool = None, unique: bool = None)->requests.Response:
-        params={}
+        params = {}
         if max_age is not None:
             params['max_age'] = max_age
         if max_uses is not None:
