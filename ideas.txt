@@ -10,37 +10,32 @@ General ideas:
 #Modules:
 	
 discordrest:
-	Uses requests library to generate calls to discord rest API
-	Does not make internal checks on data passed. The response with 400-500 HTTP errors will be returned
-	In: integers, dicts and strings
-	Out: requests response objects
+-Uses requests library to generate calls to discord rest API
+-Does not make internal checks on data passed. The response with 400-500 HTTP errors will be returned
+-In: integers, dicts and strings
+-Out: requests response objects
 	
-	TODO:
-	1). Check if all function are correct. Some of them had json and http
-	params messed up
-	2). Fix couple function missing
-	3). Check the categories functions, they were added after the works
-	started.
-	4). Add documentation
-	5). Change string concatenation to f-strings
+-TODO:
+--1). Missing functionality
+---Implement files support for post message and webhooks
+---Slack and github webhooks
+--2). Add documentation
+--3). Change string concatenation to f-strings. Add legacy file for pre 3.6 Python
 
 discordsocket:
-	Asyncronus websocket that connects to discord servers
+-Asyncronus websocket that connects to discord servers
 	
-	Has interface for event hooks that can catch events.
-	TODO:
-	1). Implement all the interactions that websocket can do
-	Only one is implemented so far: request guild members
-		Gateway Resume
-		Gateway Status Update
-		Gateway Voice State Update
-		
-	2). Implement reconnect.
-
-	Notes:
-
-	Socket sends full server info on connection. Generate high level
-	objects from that?
+-Has interface for event hooks that can catch events.
+-TODO:
+--1). Implement all the interactions that websocket can do
+---Only one is implemented so far: request guild members
+---Gateway Resume
+---Gateway Status Update
+---Gateway Voice State Update
+---2). Implement reconnect.
+--Notes:
+---Socket sends full server info on connection. Generate high level
+---objects from that?
 
 discordsocketthread:
 	Synconous interface for websocket

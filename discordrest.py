@@ -1,5 +1,6 @@
 import requests
 
+
 class DiscordSession(requests.Session):
 
     def __init__(self, token: str):
@@ -76,7 +77,7 @@ class DiscordSession(requests.Session):
     def guild_modify_name(self, guild_id: int, new_name: str)->requests.Response:
         return self._guild_modify(guild_id=guild_id, params={'name': new_name})
 
-    def guild_modify_region(self, guild_id: int, new_region:str)->requests.Response:
+    def guild_modify_region(self, guild_id: int, new_region: str)->requests.Response:
         return self._guild_modify(guild_id=guild_id, params={'region': new_region})
 
     def guild_modify_verification_level(self, guild_id: int, new_level: int)->requests.Response:
@@ -173,7 +174,7 @@ class DiscordSession(requests.Session):
             params['after'] = after
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/members', params=params or None)
 
-    def guild_member_add(self, guild_id: int, user_id: int,access_token: str, nick: str = None, roles: list = None,
+    def guild_member_add(self, guild_id: int, user_id: int, access_token: str, nick: str = None, roles: list = None,
                          mute: bool = None, deaf: bool = None)->requests.Response:
         params = {'access_token': access_token}
         if nick is not None:
@@ -301,16 +302,16 @@ class DiscordSession(requests.Session):
                               'enable_emoticons': enable_emoticons
                           })
 
-    def guild_integration_delete(self, guild_id: int, integration_id: int):
+    def guild_integration_delete(self, guild_id: int, integration_id: int)->requests.Response:
         return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/integrations/' + str(integration_id))
 
-    def guild_integration_sync(self, guild_id: int, integration_id: int):
+    def guild_integration_sync(self, guild_id: int, integration_id: int)->requests.Response:
         return self.post(self.API_url + '/guilds/' + str(guild_id) + '/integrations/' + str(integration_id) + '/sync')
 
-    def guild_embed_get(self, guild_id: int):
+    def guild_embed_get(self, guild_id: int)->requests.Response:
         return self.get(self.API_url + '/guilds/' + str(guild_id) + '/embed')
 
-    def guild_embed_modify(self, guild_id: int, enabled: bool = None, channel_id: int = None):
+    def guild_embed_modify(self, guild_id: int, enabled: bool = None, channel_id: int = None)->requests.Response:
         params = {}
         if enabled is not None:
             params['enabled'] = enabled
@@ -318,6 +319,32 @@ class DiscordSession(requests.Session):
             params['channel_id'] = channel_id
 
         return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/embed', json=params)
+
+    # Guild emoji calls
+
+    def guild_emoji_list(self, guild_id: int)->requests.Response:
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/emojis')
+
+    def guild_emoji_get(self, guild_id: int, emoji_id: int)->requests.Response:
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/emojis/' + str(emoji_id))
+
+    def guild_emoji_create(self, guild_id: int, emoji_name: str, image: str, roles: tuple = ())->requests.Response:
+        return self.post(self.API_url + '/guilds/' + str(guild_id) + '/emojis',
+                         json={
+                             'name': emoji_name,
+                             'image': image,
+                             'roles': roles
+                         })
+
+    def guild_emoji_modify(self, guild_id: int, emoji_id: int, emoji_name: str, roles: tuple = ())->requests.Response:
+        return self.patch(self.API_url + '/guilds/' + str(guild_id) + '/emojis/' + str(emoji_id),
+                          json={
+                              'name': emoji_name,
+                              'roles': roles
+                          })
+
+    def guild_emoji_delete(self, guild_id: int, emoji_id: int)->requests.Response:
+        return self.delete(self.API_url + '/guilds/' + str(guild_id) + '/emojis/' + str(emoji_id))
 
     # Channels REST API calls.
 
@@ -387,13 +414,14 @@ class DiscordSession(requests.Session):
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
                            + '/reactions/' + str(emoji) + '/@me')
 
-    def channel_message_reaction_delete(self, channel_id: int, message_id: int, user_id: int, emoji: int)->requests.Response:
+    def channel_message_reaction_delete(self, channel_id: int, message_id: int, user_id: int,
+                                        emoji: int)->requests.Response:
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
                            + '/reactions/' + str(emoji) + '/' + str(user_id))
 
     def channel_message_reaction_get_users(self, channel_id: int, message_id: int, emoji: int, before: int = None,
                                            after: int = None, limit: int = None)->requests.Response:
-        params={}
+        params = {}
         if before is not None:
             params['before'] = before
         if after is not None:
@@ -407,7 +435,8 @@ class DiscordSession(requests.Session):
         return self.delete(self.API_url + '/channels/' + str(channel_id) + '/messages/' + str(message_id)
                            + '/reactions')
 
-    def channel_message_edit(self, channel_id: int, message_id: int, content: str=None, embed: dict=None)->requests.Response:
+    def channel_message_edit(self, channel_id: int, message_id: int, content: str = None,
+                             embed: dict = None)->requests.Response:
         params = {}
         if content is not None:
             params['content'] = content
@@ -486,7 +515,7 @@ class DiscordSession(requests.Session):
     def webhook_get_channel(self, channel_id: int)->requests.Response:
         return self.get(self.API_url + '/channels/' + str(channel_id) + '/webhooks')
 
-    def webhook_get_guild(self, guild_id: int)->requests.Response:
+    def webhook_guild_get(self, guild_id: int)->requests.Response:
         return self.get(self.API_url + '/channels/' + str(guild_id) + '/webhooks')
 
     def webhook_get(self, webhook_id: int)->requests.Response:
@@ -495,20 +524,26 @@ class DiscordSession(requests.Session):
     def webhook_token_get(self, webhook_id: int, webhook_token: int)->requests.Response:
         return self.get(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token))
 
-    def webhook_modify(self, webhook_id: int, name: str = None, avatar: bytes = None)->requests.Response:
+    def webhook_modify(self, webhook_id: int, name: str = None, avatar: bytes = None,
+                       channel_id: int = None)->requests.Response:
         params = {}
         if name is not None:
             params['name'] = name
         if avatar is not None:
             params['avatar'] = avatar
+        if channel_id is not None:
+            params['channel_id'] = channel_id
         return self.patch(self.API_url + '/webhooks/' + str(webhook_id), json=params)
 
-    def webhook_token_modify(self, webhook_id: int, webhook_token: int, name: str = None, avatar: bytes = None)->requests.Response:
+    def webhook_token_modify(self, webhook_id: int, webhook_token: int, name: str = None, avatar: bytes = None,
+                             channel_id: int = None)->requests.Response:
         params = {}
         if name is not None:
             params['name'] = name
         if avatar is not None:
             params['avatar'] = avatar
+        if channel_id is not None:
+            params['channel_id'] = channel_id
         return self.patch(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token), json=params)
 
     def webhook_delete(self, webhook_id: int)->requests.Response:
@@ -517,8 +552,23 @@ class DiscordSession(requests.Session):
     def webhook_token_delete_(self, webhook_id: int, webhook_token: int)->requests.Response:
         return self.delete(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token))
 
-    def webhook_execute(self, webhook_id: int, webhook_token: int)->requests.Response:
-        pass
+    def webhook_execute(self, webhook_id: int, webhook_token: int, content: str,
+                        username: str = None, avatar_url: str = None, tts: bool = None,
+                        wait_response: bool = None)->requests.Response:
+        # TODO: add support for uploading files and embeds
+        json_params = {'content': content}
+        if username is not None:
+            json_params['username'] = username
+        if avatar_url is not None:
+            json_params['avatar_url'] = avatar_url
+        if tts is not None:
+            json_params['tts'] = tts
+        if wait_response is not None:
+            json_params['wait_response'] = wait_response
+
+        return self.post(self.API_url + '/webhooks/' + str(webhook_id) + '/' + str(webhook_token), json=json_params)
+
+    # TODO: slack and github webhooks
 
     # Special calls
 
@@ -529,17 +579,14 @@ class DiscordSession(requests.Session):
                       filter_before_entry_id: int = None, limit: int = None)->requests.Response:
         params = {}
         if limit is not None:
-            if 1 <= limit <= 100:
-                params['limit'] = limit
-            else:
-                raise TypeError('Number of returned entries must be between 1 and 100')
+            params['limit'] = limit
         if filter_user_id is not None:
             params['user_id'] = filter_user_id
         if filter_action_type is not None:
             params['action_type'] = filter_action_type
         if filter_before_entry_id is not None:
             params['before'] = filter_before_entry_id
-        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/audit-logs', json=params or None)
+        return self.get(self.API_url + '/guilds/' + str(guild_id) + '/audit-logs', params=params or None)
 
     def gateway_bot_get(self)->requests.Response:
         return self.get(self.API_url + '/gateway/bot')
