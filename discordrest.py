@@ -372,10 +372,10 @@ class DiscordSession(requests.Session):
     def channel_modify_user_limit(self, channel_id: int, userlimit: int)->requests.Response:
         return self._channel_modify(channel_id, {'userlimit': userlimit})
 
-    def channel_modify_permission_overwrites(self, channel_id: int, overwrite_array: list):
+    def channel_modify_permission_overwrites(self, channel_id: int, overwrite_array: list)->requests.Response:
         return self._channel_modify(channel_id, {'permission_overwrites': overwrite_array})
 
-    def channel_modify_parent_id(self, channel_id: int, parent_id: int):
+    def channel_modify_parent_id(self, channel_id: int, parent_id: int)->requests.Response:
         return self._channel_modify(channel_id, {'parent_id': parent_id})
 
     def channel_delete(self, channel_id: int)->requests.Response:
