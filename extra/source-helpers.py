@@ -97,7 +97,30 @@ def string_cat_to_fstring(original_str: str)->str:
 
 
 def discordrest_to_discordbot_translate(discordrest_source_code: str):
-    pass
+    function_declarations = (x for x in fetch_function_declaration_and_args(discordrest_source_code))
+
+    new_functions = []
+
+    for f in function_declarations:
+        new_string = f + '->dict:\n'
+        new_string += 'response = self.discord_session(' + function_get_arguments_string(f) + ')\n'
+        new_string += 'response.raise_for_status()\n'
+        new_string += 'return response.json()'
+        new_functions.append(new_string)
+
+    new_source = ''
+    for i in new_functions:
+        new_source += i + '\n'
+    return new_source
+
+
+def function_get_arguments_string(function_declaration: str)->str:
+    comma_split = function_declaration.split(',')[1:]
+    new_string = ''
+    for s in comma_split:
+        double_dot_pos = s.find(':')
+        new_string += s[:double_dot_pos].strip() + ', '
+    return new_string
 
 
 def fetch_function_declaration_and_args(original_str: str):

@@ -236,16 +236,16 @@ class DiscordSession(requests.Session):
 
     def guild_role_create(self, guild_id: int, permissions: int = None, color: int = None,
                           hoist: bool = None, mentionable: bool = None)->requests.Response:
-        paramas = {}
+        params = {}
         if permissions is not None:
-            paramas['permissions'] = permissions
+            params['permissions'] = permissions
         if permissions is not None:
-            paramas['color'] = color
+            params['color'] = color
         if permissions is not None:
-            paramas['hoist'] = hoist
+            params['hoist'] = hoist
         if permissions is not None:
-            paramas['mentionable'] = mentionable
-        return self.post(f'{self.API_url}/guilds/{guild_id}/roles', json=paramas or None)
+            params['mentionable'] = mentionable
+        return self.post(f'{self.API_url}/guilds/{guild_id}/roles', json=params or None)
 
     def guild_role_position_modify(self, guild_id: int, list_of_role_positions: list)->requests.Response:
         return self.patch(f'{self.API_url}/guilds/{guild_id}/roles', json=list_of_role_positions)
