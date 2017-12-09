@@ -31,7 +31,7 @@ def find_brace_close_position(text: str, brace_start: int)->int:
     return position
 
 
-test_convert = 'self.API_url + \'/webhooks/\' + str(webhook_id) + \'/\' + str(webhook_token)'
+test_fstring_convert = 'self.API_url + \'/webhooks/\' + str(webhook_id) + \'/\' + str(webhook_token)'
 
 
 def replace_string_cat_to_fstring(source_code: str):
@@ -94,3 +94,20 @@ def string_cat_to_fstring(original_str: str)->str:
             else:
                 new_string += '{' + f'{new_t}' + '}'
     return new_string + '\''
+
+
+def discordrest_to_discordbot_translate(discordrest_source_code: str):
+    pass
+
+
+def fetch_function_declaration_and_args(original_str: str):
+    start_pos = 0
+    end_pos = 0
+    while True:
+        start_pos = original_str.find('    def ', end_pos)
+        if start_pos <= 0:
+            break
+        openning_brace = original_str.find('(', start_pos)
+        closing_brace = find_brace_close_position(original_str, openning_brace)
+        end_pos = closing_brace
+        yield original_str[start_pos:closing_brace+1]

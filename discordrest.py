@@ -49,8 +49,8 @@ class DiscordSession(requests.Session):
 
     # Guild REST API calls
 
-    def guild_create(self, guild_name: str, region: str = None, icon: str = None, verification_level: int = None
-                     , default_message_notifications: int = None, roles=None, channels=None)->requests.Response:
+    def guild_create(self, guild_name: str, region: str = None, icon: str = None, verification_level: int = None,
+                     default_message_notifications: int = None, roles=None, channels=None)->requests.Response:
         json_params = {'name': guild_name}
         if region is not None:
             json_params['region'] = region
@@ -75,34 +75,34 @@ class DiscordSession(requests.Session):
 
     # Guild modify sub functions
     def guild_modify_name(self, guild_id: int, new_name: str)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'name': new_name})
+        return self._guild_modify(guild_id, {'name': new_name})
 
     def guild_modify_region(self, guild_id: int, new_region: str)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'region': new_region})
+        return self._guild_modify(guild_id, {'region': new_region})
 
     def guild_modify_verification_level(self, guild_id: int, new_level: int)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'verification_level': new_level})
+        return self._guild_modify(guild_id, {'verification_level': new_level})
 
     def guild_modify_default_notification_level(self, guild_id: int, new_level: int)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'default_message_notifications': new_level})
+        return self._guild_modify(guild_id, {'default_message_notifications': new_level})
 
     def guild_modify_afk_channel_id(self, guild_id: int, new_afk_channel_id: int)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'afk_channel_id': new_afk_channel_id})
+        return self._guild_modify(guild_id, {'afk_channel_id': new_afk_channel_id})
 
     def guild_modify_afk_timeout(self, guild_id: int, new_afk_timeout: int)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'afk_timeout': new_afk_timeout})
+        return self._guild_modify(guild_id, {'afk_timeout': new_afk_timeout})
 
     def guild_modify_icon(self, guild_id: int, new_icon: str)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'icon': new_icon})
+        return self._guild_modify(guild_id, {'icon': new_icon})
 
     def guild_modify_owner_id(self, guild_id: int, new_owner_id: int)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'owner_id': new_owner_id})
+        return self._guild_modify(guild_id, {'owner_id': new_owner_id})
 
     def guild_modify_splash(self, guild_id: int, new_splash: str)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'splash': new_splash})
+        return self._guild_modify(guild_id, {'splash': new_splash})
 
     def guild_modify_system_channel_id(self, guild_id: int, new_system_channel_id: int)->requests.Response:
-        return self._guild_modify(guild_id=guild_id, params={'system_channel_id': new_system_channel_id})
+        return self._guild_modify(guild_id, {'system_channel_id': new_system_channel_id})
 
     def guild_delete(self, guild_id: int)->requests.Response:
         return self.delete(f'{self.API_url}/guilds/{guild_id}')
@@ -124,7 +124,7 @@ class DiscordSession(requests.Session):
         if nsfw is not None:
             new_channel_params['nsfw'] = nsfw
 
-        return self._guild_channel_create(guild_id=guild_id, params=new_channel_params)
+        return self._guild_channel_create(guild_id, new_channel_params)
 
     def guild_channel_create_voice(self, guild_id: int, name: str, permission_overwrites: dict = None,
                                    parent_id: int = None, nsfw: bool = None,
@@ -141,7 +141,7 @@ class DiscordSession(requests.Session):
         if user_limit is not None:
             new_channel_params['user_limit'] = user_limit
 
-        return self._guild_channel_create(guild_id=guild_id, params=new_channel_params)
+        return self._guild_channel_create(guild_id, new_channel_params)
 
     def guild_channel_create_category(self, guild_id: int, name: str, permission_overwrites: dict = None,
                                       nsfw: bool = None)->requests.Response:
@@ -152,7 +152,7 @@ class DiscordSession(requests.Session):
         if nsfw is not None:
             new_channel_params['nsfw'] = nsfw
 
-        return self._guild_channel_create(guild_id=guild_id, params=new_channel_params)
+        return self._guild_channel_create(guild_id, new_channel_params)
 
     def guild_channels_position_modify(self, guild_id: int, list_of_channels: list)->requests.Response:
         # NOTE: This call requires list of dictionaries with with field of id of the channel and its position.
@@ -190,20 +190,22 @@ class DiscordSession(requests.Session):
     def _guild_member_modify(self, guild_id: int, user_id: int, params: dict)->requests.Response:
         return self.patch(f'{self.API_url}/guilds/{guild_id}/members/{user_id}', json=params)
 
+    # Guild member modify sub functions
+
     def guild_member_modify_nick(self, guild_id: int, user_id: int, nick_to_set: str)->requests.Response:
-        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'nick': nick_to_set})
+        return self._guild_member_modify(guild_id, user_id, {'nick': nick_to_set})
 
     def guild_member_modify_roles(self, guild_id: int, user_id: int, roles: list)->requests.Response:
-        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'roles': roles})
+        return self._guild_member_modify(guild_id, user_id, {'roles': roles})
 
     def guild_member_modify_mute(self, guild_id: int, user_id: int, mute_bool: bool)->requests.Response:
-        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'mute': mute_bool})
+        return self._guild_member_modify(guild_id, user_id, {'mute': mute_bool})
 
     def guild_member_modify_deaf(self, guild_id: int, user_id: int, deaf_bool: bool)->requests.Response:
-        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'deaf': deaf_bool})
+        return self._guild_member_modify(guild_id, user_id, {'deaf': deaf_bool})
 
     def guild_member_modify_move(self, guild_id: int, user_id: int, channel_move_to: int)->requests.Response:
-        return self._guild_member_modify(guild_id=guild_id, user_id=user_id, params={'channel_id': channel_move_to})
+        return self._guild_member_modify(guild_id, user_id, {'channel_id': channel_move_to})
 
     def guild_member_me_nick_set(self, guild_id: int, nick_to_set: str)->requests.Response:
         # IDEA: move to other me functions?
@@ -248,23 +250,25 @@ class DiscordSession(requests.Session):
     def guild_role_position_modify(self, guild_id: int, list_of_role_positions: list)->requests.Response:
         return self.patch(f'{self.API_url}/guilds/{guild_id}/roles', json=list_of_role_positions)
 
+    # Guild Role modify sub-functions
+
     def _guild_role_modify(self, guild_id: int, role_id: int, params: dict)->requests.Response:
         return self.patch(f'{self.API_url}/guilds/{guild_id}/roles/{role_id}', json=params)
 
     def guild_role_modify_name(self, guild_id: int, role_id: int, name: str)->requests.Response:
-        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'name': name})
+        return self._guild_role_modify(guild_id, role_id, {'name': name})
 
     def guild_role_modify_permissions(self, guild_id: int, role_id: int, permissions: int)->requests.Response:
-        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'permissions': permissions})
+        return self._guild_role_modify(guild_id, role_id, {'permissions': permissions})
 
     def guild_role_modify_color(self, guild_id: int, role_id: int, color: int)->requests.Response:
-        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'color': color})
+        return self._guild_role_modify(guild_id, role_id, {'color': color})
 
     def guild_role_modify_hoist(self, guild_id: int, role_id: int, hoist: bool)->requests.Response:
-        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'hoist': hoist})
+        return self._guild_role_modify(guild_id, role_id, {'hoist': hoist})
 
     def guild_role_modify_mentionable(self, guild_id: int, role_id: int, mentionable: bool)->requests.Response:
-        return self._guild_role_modify(guild_id=guild_id, role_id=role_id, params={'mentionable': mentionable})
+        return self._guild_role_modify(guild_id, role_id, {'mentionable': mentionable})
 
     def guild_role_delete(self, guild_id: int, role_id: int)->requests.Response:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/roles/{role_id}')
@@ -351,26 +355,28 @@ class DiscordSession(requests.Session):
     def _channel_modify(self, channel_id: int, params: dict)->requests.Response:
         return self.patch(f'{self.API_url}/channels/{channel_id}', json=params)
 
+    # Channel modify sub-functions
+
     def channel_modify_name(self, channel_id: int, name: str)->requests.Response:
-        return self._channel_modify(channel_id=channel_id, params={'name': name})
+        return self._channel_modify(channel_id, {'name': name})
 
     def channel_modify_position(self, channel_id: int, position: int)->requests.Response:
-        return self._channel_modify(channel_id=channel_id, params={'position': position})
+        return self._channel_modify(channel_id, {'position': position})
 
     def channel_modify_topic(self, channel_id: int, topic: str)->requests.Response:
-        return self._channel_modify(channel_id=channel_id, params={'topic': topic})
+        return self._channel_modify(channel_id, {'topic': topic})
 
     def channel_modify_bitrate(self, channel_id: int, bitrate: int)->requests.Response:
-        return self._channel_modify(channel_id=channel_id, params={'bitrate': bitrate})
+        return self._channel_modify(channel_id, {'bitrate': bitrate})
 
     def channel_modify_user_limit(self, channel_id: int, userlimit: int)->requests.Response:
-        return self._channel_modify(channel_id=channel_id, params={'userlimit': userlimit})
+        return self._channel_modify(channel_id, {'userlimit': userlimit})
 
     def channel_modify_permission_overwrites(self, channel_id: int, overwrite_array: list):
-        return self._channel_modify(channel_id=channel_id, params={'permission_overwrites': overwrite_array})
+        return self._channel_modify(channel_id, {'permission_overwrites': overwrite_array})
 
     def channel_modify_parent_id(self, channel_id: int, parent_id: int):
-        return self._channel_modify(channel_id=channel_id, params={'parent_id': parent_id})
+        return self._channel_modify(channel_id, {'parent_id': parent_id})
 
     def channel_delete(self, channel_id: int)->requests.Response:
         return self.delete(f'{self.API_url}/channels/{channel_id}')
