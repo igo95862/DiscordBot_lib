@@ -516,7 +516,7 @@ class DiscordSession(RequestsSession):
         return self.get(f'{self.API_url}/channels/{channel_id}/webhooks')
 
     def webhook_guild_get(self, guild_id: int) -> RequestsResponse:
-        return self.get(f'{self.API_url}/channels/{guild_id}/webhooks')
+        return self.get(f'{self.API_url}/guilds/{guild_id}/webhooks')
 
     def webhook_get(self, webhook_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/webhooks/{webhook_id}')
