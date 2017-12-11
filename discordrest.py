@@ -253,23 +253,23 @@ class DiscordSession(RequestsSession):
 
     # Guild Role modify sub-functions
 
-    def _guild_role_modify(self, guild_id: int, role_id: int, params: dict) -> RequestsResponse:
+    def guild_role_modify(self, guild_id: int, role_id: int, params: dict) -> RequestsResponse:
         return self.patch(f'{self.API_url}/guilds/{guild_id}/roles/{role_id}', json=params)
 
     def guild_role_modify_name(self, guild_id: int, role_id: int, name: str) -> RequestsResponse:
-        return self._guild_role_modify(guild_id, role_id, {'name': name})
+        return self.guild_role_modify(guild_id, role_id, {'name': name})
 
     def guild_role_modify_permissions(self, guild_id: int, role_id: int, permissions: int) -> RequestsResponse:
-        return self._guild_role_modify(guild_id, role_id, {'permissions': permissions})
+        return self.guild_role_modify(guild_id, role_id, {'permissions': permissions})
 
     def guild_role_modify_color(self, guild_id: int, role_id: int, color: int) -> RequestsResponse:
-        return self._guild_role_modify(guild_id, role_id, {'color': color})
+        return self.guild_role_modify(guild_id, role_id, {'color': color})
 
     def guild_role_modify_hoist(self, guild_id: int, role_id: int, hoist: bool) -> RequestsResponse:
-        return self._guild_role_modify(guild_id, role_id, {'hoist': hoist})
+        return self.guild_role_modify(guild_id, role_id, {'hoist': hoist})
 
     def guild_role_modify_mentionable(self, guild_id: int, role_id: int, mentionable: bool) -> RequestsResponse:
-        return self._guild_role_modify(guild_id, role_id, {'mentionable': mentionable})
+        return self.guild_role_modify(guild_id, role_id, {'mentionable': mentionable})
 
     def guild_role_delete(self, guild_id: int, role_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/roles/{role_id}')
