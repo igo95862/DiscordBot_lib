@@ -549,7 +549,7 @@ class DiscordSession(RequestsSession):
     def webhook_delete(self, webhook_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/webhooks/{webhook_id}')
 
-    def webhook_token_delete_(self, webhook_id: int, webhook_token: int) -> RequestsResponse:
+    def webhook_token_delete(self, webhook_id: int, webhook_token: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/webhooks/{webhook_id}/{webhook_token}')
 
     def webhook_execute(self, webhook_id: int, webhook_token: int, content: str,
