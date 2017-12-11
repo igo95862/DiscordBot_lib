@@ -1,5 +1,6 @@
 import discordrest
 import discordsocketthread
+import asyncio
 from time import time, sleep
 from _functools import partial as f_partial
 
@@ -11,6 +12,9 @@ class DiscordBot:
         self.rate_limit = self.rate_limiter_sync_sleep  
         # TODO: custom rate limiters
         self.rate_limit_table = {'global': (-1, 0)}
+
+        self.socket_thread = discordsocketthread.DiscordSocketThread(token)
+        # TODO: Sharding
 
     def rate_limiter_sync_sleep(self,
                                 api_call_partial: f_partial,
@@ -51,6 +55,7 @@ class DiscordBot:
             self.rate_limit_table[table_position] = (-1, 0)
         return response
 
+    # Current User REST API calls
     def me_get(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.me_get))
         response.raise_for_status()
@@ -66,7 +71,7 @@ class DiscordBot:
         response.raise_for_status()
         return response.json()
 
-    def me_guilds_get(self, before: int = None, after: int = None, limit: int = None) -> dict:
+    def me_guild_list(self, before: int = None, after: int = None, limit: int = None) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.me_guild_list, before, after, limit))
         response.raise_for_status()
         return response.json()
@@ -76,26 +81,28 @@ class DiscordBot:
         response.raise_for_status()
         return True
 
-    def me_dm_get(self) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_my_list))
-        response.raise_for_status()
-        return response.json()
-
-    def me_dm_create(self, recipient_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_create, recipient_id))
-        response.raise_for_status()
-        return response.json()
-
-    def me_dm_create_group(self, access_tokens: list, nicks: dict) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_create_group, access_tokens, nicks))
-        response.raise_for_status()
-        return response.json()
-
     def me_connections_get(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.me_connections_get))
         response.raise_for_status()
         return response.json()
 
+    # Direct Messaging (DM) calls
+    def dm_my_list(self) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.dm_my_list))
+        response.raise_for_status()
+        return response.json()
+
+    def dm_create(self, recipient_id: int) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.dm_create, recipient_id))
+        response.raise_for_status()
+        return response.json()
+
+    def dm_create_group(self, access_tokens: list, nicks: dict) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.dm_create_group, access_tokens, nicks))
+        response.raise_for_status()
+        return response.json()
+
+    # Guild REST API calls
     def guild_create(self, guild_name: str, region: str = None, icon: str = None, verification_level: int = None,
                      default_message_notifications: int = None, roles=None, channels=None) -> dict:
 
@@ -167,7 +174,7 @@ class DiscordBot:
         response.raise_for_status()
         return True
 
-    def guild_channels_get(self, guild_id: int) -> dict:
+    def guild_channel_list(self, guild_id: int) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_channel_list, guild_id))
         response.raise_for_status()
         return response.json()
@@ -272,7 +279,7 @@ class DiscordBot:
         response.raise_for_status()
         return True
         
-    def guild_bans_get(self, guild_id: int) -> dict:
+    def guild_ban_list(self, guild_id: int) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_ban_list(guild_id)))
         response.raise_for_status()
         return response.json()
@@ -288,7 +295,7 @@ class DiscordBot:
         response.raise_for_status()
         return True
         
-    def guild_roles_get(self, guild_id: int) -> dict:
+    def guild_role_list(self, guild_id: int) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_role_list, guild_id))
         response.raise_for_status()
         return response.json()
@@ -353,18 +360,18 @@ class DiscordBot:
         response.raise_for_status()
         return response.json()
         
-    def guild_voice_regions_get(self, guild_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_voice_regions_get, guild_id))
+    def guild_voice_region_list(self, guild_id: int) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.guild_voice_region_list, guild_id))
         response.raise_for_status()
         return response.json()
         
-    def guild_invites_get(self, guild_id: int) -> dict:
+    def guild_invite_list(self, guild_id: int) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_invite_list, guild_id))
         response.raise_for_status()
         return response.json()
         
-    def guild_integrations_get(self, guild_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_integrations_get, guild_id))
+    def guild_integration_list(self, guild_id: int) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.guild_integration_list, guild_id))
         response.raise_for_status()
         return response.json()
         
@@ -475,7 +482,7 @@ class DiscordBot:
         response.raise_for_status()
         return response.json()
         
-    def channel_messages_get(self, channel_id: int, limit: int = None, around: int = None, before: int = None,
+    def channel_message_list(self, channel_id: int, limit: int = None, around: int = None, before: int = None,
                              after: int = None) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_list, channel_id,
                                              limit, around, before, after))
@@ -559,8 +566,8 @@ class DiscordBot:
         response.raise_for_status()
         return True
         
-    def channel_invites_get(self, channel_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.channel_invites_get, channel_id))
+    def channel_invite_list(self, channel_id: int) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.channel_invite_list, channel_id))
         response.raise_for_status()
         return response.json()
         
@@ -681,8 +688,8 @@ class DiscordBot:
         response.raise_for_status()
         return response.json()
         
-    def voice_regions_get(self) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.voice_regions_get))
+    def voice_region_list(self) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.voice_region_list))
         response.raise_for_status()
         return response.json()
 
@@ -697,3 +704,17 @@ class DiscordBot:
         response = self.rate_limit(f_partial(self.discord_session.gateway_bot_get))
         response.raise_for_status()
         return response.json()
+
+    # Web socket functions
+    async def event_get(self) -> dict:
+        if hasattr(self, 'event_queue'):
+            return await self.event_queue.get()
+        else:
+            self.event_queue = asyncio.Queue()
+            local_loop = asyncio.get_event_loop()
+
+            async def event_trap(event_payload: dict):
+                asyncio.run_coroutine_threadsafe(self.event_queue.put(event_payload), local_loop)
+            self.socket_thread.event_hook_add(event_trap)
+
+            return await self.event_queue.get()

@@ -289,7 +289,7 @@ class DiscordSession(RequestsSession):
     def guild_prune_begin(self, guild_id: int, days: int) -> RequestsResponse:
         return self.post(f'{self.API_url}/guilds/{guild_id}/prune', params={'days': days})
 
-    def guild_voice_regions_get(self, guild_id: int) -> RequestsResponse:
+    def guild_voice_region_list(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/regions')
 
     def guild_invite_list(self, guild_id: int) -> RequestsResponse:
@@ -297,7 +297,7 @@ class DiscordSession(RequestsSession):
 
     # NOTE: guild integration calls had not been tested.
 
-    def guild_integrations_get(self, guild_id: int) -> RequestsResponse:
+    def guild_integration_list(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/integrations')
 
     def guild_integration_create(self, guild_id: int, integration_type: str, integration_id: int) -> RequestsResponse:
@@ -469,7 +469,7 @@ class DiscordSession(RequestsSession):
     def channel_permissions_overwrite_delete(self, channel_id: int, overwrite_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}/permissions/{overwrite_id}')
 
-    def channel_invites_get(self, channel_id: int) -> RequestsResponse:
+    def channel_invite_list(self, channel_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/channels/{channel_id}/invites')
 
     def channel_invite_create(self, channel_id: int, max_age: int = None, max_uses: int = None,
@@ -496,7 +496,6 @@ class DiscordSession(RequestsSession):
 
     def channel_pins_delete(self, channel_id: int, message_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}/pins/{message_id}')
-
 
     # Invite REST API calls
 
@@ -575,7 +574,7 @@ class DiscordSession(RequestsSession):
 
     # Special calls
 
-    def voice_regions_get(self) -> RequestsResponse:
+    def voice_region_list(self) -> RequestsResponse:
         return self.get(f'{self.API_url}/voice/regions')
 
     def audit_log_get(self, guild_id: int, filter_user_id: int = None, filter_action_type: int = None,
