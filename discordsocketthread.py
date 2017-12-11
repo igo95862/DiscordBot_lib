@@ -46,4 +46,10 @@ class DiscordSocketThread:
     def event_hook_add(self, coroutine):
         self.discord_socket_loop.call_soon_threadsafe(func_partial(self.discord_socket.event_hooks.append, coroutine))
 
+    def event_queue_add(self, queue: asyncio.Queue):
+        local_loop = asyncio.get_event_loop()
+
+        async def event_hook(payload: dict):
+            asyncio.run_coroutine_threadsafe(queue.put(payload), loop=local_loop)
+        self.event_hook_add(event_hook)
 
