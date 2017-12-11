@@ -67,7 +67,7 @@ class DiscordBot:
         return response.json()
 
     def me_guilds_get(self, before: int = None, after: int = None, limit: int = None) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.me_guilds_get, before, after, limit))
+        response = self.rate_limit(f_partial(self.discord_session.me_guild_list, before, after, limit))
         response.raise_for_status()
         return response.json()
 
@@ -77,17 +77,17 @@ class DiscordBot:
         return True
 
     def me_dm_get(self) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.me_dm_get))
+        response = self.rate_limit(f_partial(self.discord_session.dm_my_list))
         response.raise_for_status()
         return response.json()
 
     def me_dm_create(self, recipient_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.me_dm_create, recipient_id))
+        response = self.rate_limit(f_partial(self.discord_session.dm_create, recipient_id))
         response.raise_for_status()
         return response.json()
 
     def me_dm_create_group(self, access_tokens: list, nicks: dict) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.me_dm_create_group, access_tokens, nicks))
+        response = self.rate_limit(f_partial(self.discord_session.dm_create_group, access_tokens, nicks))
         response.raise_for_status()
         return response.json()
 
@@ -168,7 +168,7 @@ class DiscordBot:
         return True
 
     def guild_channels_get(self, guild_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_channels_get, guild_id))
+        response = self.rate_limit(f_partial(self.discord_session.guild_channel_list, guild_id))
         response.raise_for_status()
         return response.json()
 
@@ -206,7 +206,7 @@ class DiscordBot:
         return response.json()
         
     def guild_members_list(self, guild_id: int, limit: int = None, after: int = None) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_members_list, guild_id, limit, after))
+        response = self.rate_limit(f_partial(self.discord_session.guild_member_list, guild_id, limit, after))
         response.raise_for_status()
         return response.json()
         
@@ -273,7 +273,7 @@ class DiscordBot:
         return True
         
     def guild_bans_get(self, guild_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_bans_get(guild_id)))
+        response = self.rate_limit(f_partial(self.discord_session.guild_ban_list(guild_id)))
         response.raise_for_status()
         return response.json()
 
@@ -289,7 +289,7 @@ class DiscordBot:
         return True
         
     def guild_roles_get(self, guild_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_roles_get, guild_id))
+        response = self.rate_limit(f_partial(self.discord_session.guild_role_list, guild_id))
         response.raise_for_status()
         return response.json()
         
@@ -359,7 +359,7 @@ class DiscordBot:
         return response.json()
         
     def guild_invites_get(self, guild_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_invites_get, guild_id))
+        response = self.rate_limit(f_partial(self.discord_session.guild_invite_list, guild_id))
         response.raise_for_status()
         return response.json()
         
@@ -477,7 +477,7 @@ class DiscordBot:
         
     def channel_messages_get(self, channel_id: int, limit: int = None, around: int = None, before: int = None,
                              after: int = None) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.channel_messages_get, channel_id,
+        response = self.rate_limit(f_partial(self.discord_session.channel_message_list, channel_id,
                                              limit, around, before, after))
         response.raise_for_status()
         return response.json()
@@ -599,13 +599,13 @@ class DiscordBot:
         
     def dm_channel_user_add(self, channel_id: int, user_id: int, access_token: str,
                             user_nick: str) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_channel_user_add, channel_id,
+        response = self.rate_limit(f_partial(self.discord_session.dm_user_add, channel_id,
                                              user_id, access_token, user_nick))
         response.raise_for_status()
         return response.json()
         
     def dm_channel_user_remove(self, channel_id: int, user_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_channel_user_remove, channel_id, user_id))
+        response = self.rate_limit(f_partial(self.discord_session.dm_user_remove, channel_id, user_id))
         response.raise_for_status()
         return response.json()
         
@@ -630,12 +630,12 @@ class DiscordBot:
         return response.json()
         
     def webhook_get_channel(self, channel_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.webhook_get_channel, channel_id))
+        response = self.rate_limit(f_partial(self.discord_session.webhook_list_channel, channel_id))
         response.raise_for_status()
         return response.json()
         
     def webhook_guild_get(self, guild_id: int) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.webhook_guild_get, guild_id))
+        response = self.rate_limit(f_partial(self.discord_session.webhook_list_guild, guild_id))
         response.raise_for_status()
         return response.json()
         
@@ -697,7 +697,3 @@ class DiscordBot:
         response = self.rate_limit(f_partial(self.discord_session.gateway_bot_get))
         response.raise_for_status()
         return response.json()
-
-
-
-

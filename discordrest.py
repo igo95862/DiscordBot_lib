@@ -10,7 +10,7 @@ class DiscordSession(RequestsSession):
 
     API_url = 'https://discordapp.com/api/v6'
 
-    # User REST API calls
+    # Current User REST API calls
 
     def me_get(self) -> RequestsResponse:
         return self.get(f'{self.API_url}/users/@me')
@@ -22,7 +22,7 @@ class DiscordSession(RequestsSession):
         # TODO: add avatar change support
         return self.patch(f'{self.API_url}/users/@me', json={'username': username})
 
-    def me_guilds_get(self, before: int = None, after: int = None, limit: int = None) -> RequestsResponse:
+    def me_guild_list(self, before: int = None, after: int = None, limit: int = None) -> RequestsResponse:
         params = {}
         if before is not None:
             params['before'] = before
@@ -35,18 +35,27 @@ class DiscordSession(RequestsSession):
     def me_guild_leave(self, guild_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/users/@me/guilds/{guild_id}')
 
-    def me_dm_get(self) -> RequestsResponse:
+    def me_connections_get(self) -> RequestsResponse:
+        return self.get(f'{self.API_url}/users/@me/connections')
+
+    # Direct Messaging (DM) calls
+
+    def dm_my_list(self) -> RequestsResponse:
         return self.get(f'{self.API_url}/users/@me/channels')
 
-    def me_dm_create(self, recipient_id: int) -> RequestsResponse:
+    def dm_create(self, recipient_id: int) -> RequestsResponse:
         return self.post(f'{self.API_url}/users/@me/channels', json={'recipient_id': recipient_id})
 
-    def me_dm_create_group(self, access_tokens: list, nicks: dict) -> RequestsResponse:
+    def dm_create_group(self, access_tokens: list, nicks: dict) -> RequestsResponse:
         # NOTE: Have not been tested.
         return self.post(f'{self.API_url}/users/@me/channels', json={'access_tokens': access_tokens, 'nicks': nicks})
 
-    def me_connections_get(self) -> RequestsResponse:
-        return self.get(f'{self.API_url}/users/@me/connections')
+    def dm_user_add(self, channel_id: int, user_id: int, access_token: str, user_nick: str) -> RequestsResponse:
+        return self.put(f'{self.API_url}/channels/{channel_id}/recipients/{user_id}',
+                        json={'access_token': access_token, 'nick': user_nick})
+
+    def dm_user_remove(self, channel_id: int, user_id: int) -> RequestsResponse:
+        return self.delete(f'{self.API_url}/channels/{channel_id}/recipients/{user_id}')
 
     # Guild REST API calls
 
@@ -108,7 +117,7 @@ class DiscordSession(RequestsSession):
     def guild_delete(self, guild_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}')
 
-    def guild_channels_get(self, guild_id: int) -> RequestsResponse:
+    def guild_channel_list(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/channels')
 
     def _guild_channel_create(self, guild_id: int, params: dict) -> RequestsResponse:
@@ -166,7 +175,7 @@ class DiscordSession(RequestsSession):
     def guild_member_get(self, guild_id: int, user_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/members/{user_id}')
 
-    def guild_members_list(self, guild_id: int, limit: int = None, after: int = None) -> RequestsResponse:
+    def guild_member_list(self, guild_id: int, limit: int = None, after: int = None) -> RequestsResponse:
         # NOTE: default amount of users returned is just one
         params = {}
         if limit is not None:
@@ -221,7 +230,7 @@ class DiscordSession(RequestsSession):
     def guild_member_remove(self, guild_id: int, user_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/members/{user_id}')
 
-    def guild_bans_get(self, guild_id: int) -> RequestsResponse:
+    def guild_ban_list(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/bans')
 
     def guild_ban_create(self, guild_id: int, user_id: int, delete_messages_days=None) -> RequestsResponse:
@@ -232,7 +241,7 @@ class DiscordSession(RequestsSession):
     def guild_ban_remove(self, guild_id: int, user_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/bans/{user_id}')
 
-    def guild_roles_get(self, guild_id: int) -> RequestsResponse:
+    def guild_role_list(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/roles')
 
     def guild_role_create(self, guild_id: int, permissions: int = None, color: int = None,
@@ -283,7 +292,7 @@ class DiscordSession(RequestsSession):
     def guild_voice_regions_get(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/regions')
 
-    def guild_invites_get(self, guild_id: int) -> RequestsResponse:
+    def guild_invite_list(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/invites')
 
     # NOTE: guild integration calls had not been tested.
@@ -382,7 +391,7 @@ class DiscordSession(RequestsSession):
     def channel_delete(self, channel_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}')
 
-    def channel_messages_get(self, channel_id: int, limit: int = None, around: int = None,
+    def channel_message_list(self, channel_id: int, limit: int = None, around: int = None,
                              before: int = None, after: int = None) -> RequestsResponse:
         params = {}
         if limit is not None:
@@ -488,12 +497,6 @@ class DiscordSession(RequestsSession):
     def channel_pins_delete(self, channel_id: int, message_id: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}/pins/{message_id}')
 
-    def dm_channel_user_add(self, channel_id: int, user_id: int, access_token: str, user_nick: str) -> RequestsResponse:
-        return self.put(f'{self.API_url}/channels/{channel_id}/recipients/{user_id}',
-                        json={'access_token': access_token, 'nick': user_nick})
-
-    def dm_channel_user_remove(self, channel_id: int, user_id: int) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/recipients/{user_id}')
 
     # Invite REST API calls
 
@@ -512,10 +515,10 @@ class DiscordSession(RequestsSession):
         return self.post(f'{self.API_url}/channels/{channel_id}/webhooks',
                          json={'name': name, 'avatar': avatar})
 
-    def webhook_get_channel(self, channel_id: int) -> RequestsResponse:
+    def webhook_list_channel(self, channel_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/channels/{channel_id}/webhooks')
 
-    def webhook_guild_get(self, guild_id: int) -> RequestsResponse:
+    def webhook_list_guild(self, guild_id: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/webhooks')
 
     def webhook_get(self, webhook_id: int) -> RequestsResponse:
@@ -593,4 +596,4 @@ class DiscordSession(RequestsSession):
 
 
 def authorization_url_get(bot_id: int) -> str:
-    return 'https://discordapp.com/api/oauth2/authorize?client_id=' + str(bot_id) + '&scope=bot&permissions=0'
+    return f'https://discordapp.com/api/oauth2/authorize?client_id={bot_id}&scope=bot&permissions=0'

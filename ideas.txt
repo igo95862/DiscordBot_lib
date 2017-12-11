@@ -20,7 +20,7 @@ discordrest:
 ---Implement files support for post message and webhooks
 ---Slack and github webhooks
 --2). Add documentation
---3). Change string concatenation to f-strings. Add legacy file for pre 3.6 Python
+--3). Remove sub functions and move them to discordbot?
 
 discordsocket:
 -Asyncronus websocket that connects to discord servers
@@ -34,8 +34,7 @@ discordsocket:
 ---Gateway Voice State Update
 ---2). Implement reconnect.
 --Notes:
----Socket sends full server info on connection. Generate high level
----objects from that?
+---Socket sends full server info on connection. Generate high level objects from that?
 
 discordsocketthread:
 	Synconous interface for websocket
