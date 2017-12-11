@@ -188,25 +188,25 @@ class DiscordSession(RequestsSession):
             params['deaf'] = deaf
         return self.put(f'{self.API_url}/guilds/{guild_id}/members/{user_id}', json=params)
 
-    def _guild_member_modify(self, guild_id: int, user_id: int, params: dict) -> RequestsResponse:
+    def guild_member_modify(self, guild_id: int, user_id: int, params: dict) -> RequestsResponse:
         return self.patch(f'{self.API_url}/guilds/{guild_id}/members/{user_id}', json=params)
 
     # Guild member modify sub functions
 
     def guild_member_modify_nick(self, guild_id: int, user_id: int, nick_to_set: str) -> RequestsResponse:
-        return self._guild_member_modify(guild_id, user_id, {'nick': nick_to_set})
+        return self.guild_member_modify(guild_id, user_id, {'nick': nick_to_set})
 
     def guild_member_modify_roles(self, guild_id: int, user_id: int, roles: list) -> RequestsResponse:
-        return self._guild_member_modify(guild_id, user_id, {'roles': roles})
+        return self.guild_member_modify(guild_id, user_id, {'roles': roles})
 
     def guild_member_modify_mute(self, guild_id: int, user_id: int, mute_bool: bool) -> RequestsResponse:
-        return self._guild_member_modify(guild_id, user_id, {'mute': mute_bool})
+        return self.guild_member_modify(guild_id, user_id, {'mute': mute_bool})
 
     def guild_member_modify_deaf(self, guild_id: int, user_id: int, deaf_bool: bool) -> RequestsResponse:
-        return self._guild_member_modify(guild_id, user_id, {'deaf': deaf_bool})
+        return self.guild_member_modify(guild_id, user_id, {'deaf': deaf_bool})
 
     def guild_member_modify_move(self, guild_id: int, user_id: int, channel_move_to: int) -> RequestsResponse:
-        return self._guild_member_modify(guild_id, user_id, {'channel_id': channel_move_to})
+        return self.guild_member_modify(guild_id, user_id, {'channel_id': channel_move_to})
 
     def guild_member_me_nick_set(self, guild_id: int, nick_to_set: str) -> RequestsResponse:
         # IDEA: move to other me functions?
