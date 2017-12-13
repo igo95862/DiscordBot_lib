@@ -5,16 +5,16 @@ from time import time, sleep
 from _functools import partial as f_partial
 
 
-class DiscordBot:
+class DiscordClient:
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, shards: int = 1):
         self.discord_session = discordrest.DiscordSession(token)
         self.rate_limit = self.rate_limiter_sync_sleep  
         # TODO: custom rate limiters
         self.rate_limit_table = {'global': (-1, 0)}
 
+        # TODO: sharding
         self.socket_thread = discordsocketthread.DiscordSocketThread(token)
-        # TODO: Sharding
 
     def rate_limiter_sync_sleep(self,
                                 api_call_partial: f_partial,
@@ -54,6 +54,10 @@ class DiscordBot:
         else:
             self.rate_limit_table[table_position] = (-1, 0)
         return response
+
+    def rate_limiter_lookup(self, table_position: tuple):
+        entry = self.rate_limit_table[table_position]
+        return entry[0], entry[1]
 
     # Current User REST API calls
     def me_get(self) -> dict:
@@ -706,15 +710,8 @@ class DiscordBot:
         return response.json()
 
     # Web socket functions
-    async def event_get(self) -> dict:
-        if hasattr(self, 'event_queue'):
-            return await self.event_queue.get()
-        else:
-            self.event_queue = asyncio.Queue()
-            local_loop = asyncio.get_event_loop()
 
-            async def event_trap(event_payload: dict):
-                asyncio.run_coroutine_threadsafe(self.event_queue.put(event_payload), local_loop)
-            self.socket_thread.event_hook_add(event_trap)
-
-            return await self.event_queue.get()
+    def event_queue_add(self, filter_function=lambda x: True):
+        q = asyncio.Queue()
+        self.socket_thread.queue_register(q)
+        return q
