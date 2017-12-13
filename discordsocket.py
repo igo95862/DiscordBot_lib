@@ -58,19 +58,20 @@ class DiscordSocket:
         payload['token'] = self.token
         payload['presence'] = self.presence
         payload['shard'] = [self.shard_num, self.shard_total]
-        self.event_hook_add(self._ready_event_trap)
-        await self.websocket.send(json.dumps({'op': 2, 'd': payload}))
 
-    async def _ready_event_trap(self, payload: dict):
-        if ['t'] == 'READY':
-            self.ready_payload = payload
-            self.session_id = payload['d']['session_id']
-            return True
+        async def ready_event_trap(event_payload: dict):
+            if event_payload['t'] == 'READY':
+                self.ready_payload = event_payload
+                self.session_id = event_payload['d']['session_id']
+                return True
+
+        self.event_hook_add(ready_event_trap)
+        await self.websocket.send(json.dumps({'op': 2, 'd': payload}))
 
     async def _heartbeat_cycle(self):
         while True:
             await asyncio.sleep(self.heartbeat_interval)
-            await self.websocket.send(json.dumps({'op': 1, 'd': self.heartbeat_sequence }))
+            await self.websocket.send(json.dumps({'op': 1, 'd': self.heartbeat_sequence}))
 
     async def _receive_cycle(self):
         while True:

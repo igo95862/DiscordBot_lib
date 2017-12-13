@@ -6,17 +6,21 @@ from functools import partial as func_partial
 
 class DiscordSocketThread:
 
-    def __init__(self, *args):
+    def __init__(self, token: str = None, discord_socket: discordsocket.DiscordSocket = None,
+                 shard_total: int = 1, shard_num: int = 0):
 
-        if type(args[0]) is str:
+        if token is not None:
             # NOTE: check that the string has proper length and etc.?
             self.discord_socket_loop = asyncio.new_event_loop()
-            self.discord_socket = discordsocket.DiscordSocket(args[0], event_loop=self.discord_socket_loop)
-        elif type(args[0]) is discordsocket.DiscordSocket:
-            self.discord_socket = args[0]
+            self.discord_socket = discordsocket.DiscordSocket(token, shard_total=shard_total, shard_num=shard_num,
+                                                              event_loop=self.discord_socket_loop)
+        elif discord_socket is not None:
+            self.discord_socket = discord_socket
             self.discord_socket.event_loop = self.discord_socket_loop
         else:
             raise TypeError('Neither token nor socket was passed to socket.')
+
+        self.queue_to_hook_dict = {}
 
         self.discord_socket_loop.create_task(self.discord_socket.init())
 
@@ -46,10 +50,19 @@ class DiscordSocketThread:
     def event_hook_add(self, coroutine):
         self.discord_socket_loop.call_soon_threadsafe(func_partial(self.discord_socket.event_hooks.append, coroutine))
 
-    def event_queue_add(self, queue: asyncio.Queue):
+    def event_hook_delete(self, coroutine):
+        self.discord_socket_loop.call_soon_threadsafe(func_partial(self.discord_socket.event_hooks.remove, coroutine))
+
+    def queue_register(self, queue: asyncio.Queue, filter_function=lambda x: True):
         local_loop = asyncio.get_event_loop()
 
         async def event_hook(payload: dict):
-            asyncio.run_coroutine_threadsafe(queue.put(payload), loop=local_loop)
+            if filter_function(payload):
+                asyncio.run_coroutine_threadsafe(queue.put(payload), loop=local_loop)
+
+        self.queue_to_hook_dict[queue] = event_hook
         self.event_hook_add(event_hook)
+
+    def queue_unregister(self, queue: asyncio.Queue):
+        self.event_hook_delete(self.queue_to_hook_dict[queue])
 
