@@ -541,7 +541,7 @@ class DiscordClient:
     def channel_message_edit(self, channel_id: int, message_id: int, content: str = None,
                              embed: dict = None) -> dict:
         response = self.rate_limit(
-            f_partial(self.discord_session.channel_message_edit, channel_id, message_id, content, embed)
+            f_partial(self.discord_session.channel_message_edit, channel_id, message_id, content, embed),
             (self.discord_session.channel_message_edit, channel_id))
         response.raise_for_status()
         return response.json()
