@@ -1,4 +1,4 @@
-import discordsocket
+from . import discordsocket
 import asyncio
 import threading
 from functools import partial as func_partial

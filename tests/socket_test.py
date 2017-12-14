@@ -1,5 +1,5 @@
 import unittest
-import discordsocket
+from discordobjects import discordsocket
 import asyncio
 
 
@@ -15,8 +15,6 @@ class SocketInitTest(unittest.TestCase):
     def test_initialising_socket(self):
         self.event_loop.run_until_complete(self.discord_socket.init())
         self.assertIsNotNone(self.discord_socket.session_id, 'Session id was caught.')
-
-
 
 
 if __name__ == '__main__':

@@ -1,5 +1,4 @@
-import discordrest
-import discordsocketthread
+from . import discordsocketthread, discordrest
 import asyncio
 from time import time, sleep
 from _functools import partial as f_partial
@@ -7,7 +6,7 @@ from _functools import partial as f_partial
 
 class DiscordClient:
 
-    def __init__(self, token: str, shards: int = 1):
+    def __init__(self, token: str):
         self.discord_session = discordrest.DiscordSession(token)
         self.rate_limit = self.rate_limiter_sync_sleep  
         # TODO: custom rate limiters
@@ -713,5 +712,5 @@ class DiscordClient:
 
     def event_queue_add(self, filter_function=lambda x: True):
         q = asyncio.Queue()
-        self.socket_thread.queue_register(q)
+        self.socket_thread.queue_register(q, filter_function)
         return q
