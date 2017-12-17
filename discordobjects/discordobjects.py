@@ -23,6 +23,9 @@ class DiscordMe(DiscordObject):
     def get_my_dms(self):
         pass
 
+    def find_channel_by_id(self, channel_id: int):
+        return DiscordChannel.from_id(channel_id, self.client_bind)
+
 
 class DiscordGuild(DiscordObject):
 
@@ -58,8 +61,12 @@ class DiscordMessage(DiscordObject):
     def edit(self, new_content: str):
         self.client_bind.channel_message_edit(self.parent_channel_id, self.snowflake, new_content)
 
-    def __del__(self):
+    def remove(self):
         self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
+
+    def get_reactions(self):
+        pass
+        self.client_bind.channel_message_reaction_get_users()
 
     @staticmethod
     def from_dict(message_dict: dict, client_bind: DiscordClient):
