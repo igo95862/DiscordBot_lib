@@ -268,12 +268,14 @@ class DiscordClient:
         return response.json()
         
     def guild_member_role_add(self, guild_id: int, user_id: int, role_id: int) -> bool:
-        response = self.rate_limit(f_partial(self.discord_session.guild_member_role_add, guild_id, user_id, role_id))
+        response = self.rate_limit(f_partial(self.discord_session.guild_member_role_add, guild_id, user_id, role_id),
+                                   ("Guild member role manipulation: ", guild_id))
         response.raise_for_status()
         return True
         
     def guild_member_role_remove(self, guild_id: int, user_id: int, role_id: int) -> bool:
-        response = self.rate_limit(f_partial(self.discord_session.guild_member_role_remove, guild_id, user_id, role_id))
+        response = self.rate_limit(f_partial(self.discord_session.guild_member_role_remove, guild_id, user_id, role_id),
+                                   ("Guild member role manipulation: ", guild_id))
         response.raise_for_status()
         return True
         

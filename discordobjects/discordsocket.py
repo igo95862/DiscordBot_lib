@@ -100,6 +100,7 @@ class DiscordSocket:
 
     async def request_guild_members(self, guild_id: int, query: str = '', limit: int = 0):
         # TODO: implement query and limit support
+        # BUG: Only returns 1000 users if there is more then 1000 users in the guild
         event = asyncio.Event()
         event.result = None
 
