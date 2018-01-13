@@ -6,7 +6,7 @@ from _functools import partial as f_partial
 
 class DiscordClient:
 
-    def __init__(self, token: str, init_socket: bool = True, proxies: dict = None):
+    def __init__(self, token: str, use_socket: bool = True, proxies: dict = None):
         self.discord_session = discordrest.DiscordSession(token, proxies)
         self.rate_limit = self.rate_limiter_sync_sleep  
         # TODO: custom rate limiters
@@ -14,7 +14,7 @@ class DiscordClient:
 
         self.socket_thread = None
         # TODO: sharding
-        if init_socket:
+        if use_socket:
             self.socket_thread = discordsocketthread.DiscordSocketThread(token)
 
     def rate_limiter_sync_sleep(self,
