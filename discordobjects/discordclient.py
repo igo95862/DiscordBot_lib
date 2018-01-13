@@ -6,14 +6,16 @@ from _functools import partial as f_partial
 
 class DiscordClient:
 
-    def __init__(self, token: str):
-        self.discord_session = discordrest.DiscordSession(token)
+    def __init__(self, token: str, init_socket: bool = True, proxies: dict = None):
+        self.discord_session = discordrest.DiscordSession(token, proxies)
         self.rate_limit = self.rate_limiter_sync_sleep  
         # TODO: custom rate limiters
         self.rate_limit_table = {'global': (-1, 0)}
 
+        self.socket_thread = None
         # TODO: sharding
-        self.socket_thread = discordsocketthread.DiscordSocketThread(token)
+        if init_socket:
+            self.socket_thread = discordsocketthread.DiscordSocketThread(token)
 
     def rate_limiter_sync_sleep(self,
                                 api_call_partial: f_partial,

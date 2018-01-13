@@ -4,9 +4,11 @@ from requests import Session as RequestsSession
 
 class DiscordSession(RequestsSession):
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, proxies: dict = None):
         super(DiscordSession, self).__init__()
         self.headers.update({'Authorization': 'Bot ' + token})
+        if proxies is not None:
+            self.proxies = proxies
 
     API_url = 'https://discordapp.com/api/v6'
 
