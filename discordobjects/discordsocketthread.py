@@ -27,7 +27,7 @@ class DiscordSocketThread:
         self.thread = threading.Thread(target=self.discord_socket_loop.run_forever)
         self.thread.start()
 
-    def request_guild_members(self, guild_id: int, query: str = '', limit: int = 0):
+    def request_guild_members(self, guild_id: str, query: str = '', limit: int = 0):
         return asyncio.run_coroutine_threadsafe(
             self.discord_socket.request_guild_members(
                 guild_id, query, limit),
@@ -40,7 +40,7 @@ class DiscordSocketThread:
                 status_type, is_afk, game, since_time_seconds),
             self.discord_socket_loop)
 
-    def voice_state_update(self, guild_id: int, channel_id: int = None,
+    def voice_state_update(self, guild_id: str, channel_id: int = None,
                            mute_self: bool = None, deaf_self: bool = False):
         return asyncio.run_coroutine_threadsafe(
             self.discord_socket.voice_state_update(

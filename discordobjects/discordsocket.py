@@ -98,7 +98,7 @@ class DiscordSocket:
     def event_hook_add(self, coroutine):
         self.event_hooks.append(coroutine)
 
-    async def request_guild_members(self, guild_id: int, query: str = '', limit: int = 0):
+    async def request_guild_members(self, guild_id: str, query: str = '', limit: int = 0):
         # TODO: implement query and limit support
         # BUG: Only returns 1000 users if there is more then 1000 users in the guild
         event = asyncio.Event()
@@ -135,7 +135,7 @@ class DiscordSocket:
         }
         )))
 
-    async def voice_state_update(self, guild_id: int, channel_id: int = None,
+    async def voice_state_update(self, guild_id: str, channel_id: str = None,
                                  mute_self: bool = None, deaf_self: bool = False):
         return self.event_loop.create_task(self.websocket.send(json.dumps({
             'op': 4,
