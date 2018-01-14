@@ -287,7 +287,7 @@ class DiscordClient:
         return True
         
     def guild_ban_list(self, guild_id: str) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.guild_ban_list,guild_id))
+        response = self.rate_limit(f_partial(self.discord_session.guild_ban_list, guild_id))
         response.raise_for_status()
         return response.json()
 
