@@ -24,8 +24,27 @@ class DiscordSocketThread:
 
         self.discord_socket_loop.create_task(self.discord_socket.init())
 
+        local_loop = asyncio.get_event_loop()
+
+        # TODO: Timeout on queues as they can lock the application
+
+        ready_queue = asyncio.Queue(maxsize=1, loop=local_loop)
+        self.queue_register(ready_queue, lambda x: x['t'] == 'READY')
+
+        guild_create_queue = asyncio.Queue(loop=local_loop)
+        self.queue_register(guild_create_queue, lambda x: x['t'] == 'GUILD_CREATE')
+
         self.thread = threading.Thread(target=self.discord_socket_loop.run_forever)
         self.thread.start()
+
+        self.ready_payload = local_loop.run_until_complete(ready_queue.get())
+        self.queue_unregister(ready_queue)
+
+        self.guild_init_payloads = []
+        for i in range(len(self.ready_payload['d']['guilds'])):
+            self.guild_init_payloads.append(local_loop.run_until_complete(guild_create_queue.get()))
+
+        self.queue_unregister(guild_create_queue)
 
     def request_guild_members(self, guild_id: str, query: str = '', limit: int = 0):
         return asyncio.run_coroutine_threadsafe(

@@ -26,8 +26,8 @@ class DiscordClient:
         By default tracks rate limit based on function, if the call 
         has separated rate limits for separated
         
-        Not suitable for async development as entire thread locks 
-        whenever it wants to slow down.
+        Semi-suitable for async development: only one call to API can be made at a time,
+        but while waiting other coroutines can function in the back ground.
 
         :param api_call_partial: Functools partial entry that contains the call to Discord API
         :param table_position: Overwrite for table position, used when the call is rate limited based on route
@@ -46,7 +46,7 @@ class DiscordClient:
         if remaining_limit == 0:
             sleep_time = self.rate_limit_table[table_position][1] - time()
             if sleep_time > 0:
-                sleep(sleep_time)
+                self.event_loop.run_until_complete(asyncio.sleep(sleep_time))
         response = api_call_partial()
         if 'X-RateLimit-Remaining' in response.headers:
             self.rate_limit_table[table_position] = (
