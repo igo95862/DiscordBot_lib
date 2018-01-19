@@ -410,7 +410,7 @@ class DiscordSession(RequestsSession):
         return self.get(f'{self.API_url}/channels/{channel_id}/messages/{message_id}')
 
     def channel_message_create(self, channel_id: str, content: str, nonce: bool = None, tts: bool = None,
-                               file: bytes = None, embed: dict = None) -> RequestsResponse:
+                               embed: dict = None) -> RequestsResponse:
         # TODO: check if files can be actually used. Fix if they can't.
         params = {'content': content}
         if nonce is not None:
@@ -419,7 +419,12 @@ class DiscordSession(RequestsSession):
             params['tts'] = tts
         if embed is not None:
             params['embed'] = embed
-        return self.post(f'{self.API_url}/channels/{channel_id}/messages', files=file, json=params)
+        return self.post(f'{self.API_url}/channels/{channel_id}/messages', json=params)
+
+    def channel_message_create_file(self, channel_id: str, files_array: list) -> RequestsResponse:
+        # NOTE: need to figure out how to post message with the files at the same time
+        return self.post(f'{self.API_url}/channels/{channel_id}/messages',
+                         files=files_array)
 
     def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: int) -> RequestsResponse:
         return self.put(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')

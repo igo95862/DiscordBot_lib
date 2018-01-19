@@ -502,9 +502,16 @@ class DiscordClient:
         return response.json()
         
     def channel_message_create(self, channel_id: str, content: str, nonce: bool = None, tts: bool = None,
-                               file: bytes = None, embed: dict = None) -> dict:
+                               embed: dict = None) -> dict:
         response = self.rate_limit(
-            f_partial(self.discord_session.channel_message_create, channel_id, content, nonce, tts, file, embed),
+            f_partial(self.discord_session.channel_message_create, channel_id, content, nonce, tts, embed),
+            (self.discord_session.channel_message_create, channel_id))
+        response.raise_for_status()
+        return response.json()
+
+    def channel_message_create_file(self, channel_id: str, filename: str, file_content: bytes):
+        response = self.rate_limit(
+            f_partial(self.discord_session.channel_message_create, channel_id, {filename: file_content}),
             (self.discord_session.channel_message_create, channel_id))
         response.raise_for_status()
         return response.json()
