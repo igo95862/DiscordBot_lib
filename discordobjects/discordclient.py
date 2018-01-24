@@ -12,6 +12,7 @@ class DiscordClient:
         # TODO: custom rate limiters
         self.rate_limit_table = {'global': (-1, 0)}
 
+        self.event_loop = asyncio.get_event_loop()
         self.socket_thread = None
         # TODO: sharding
         if use_socket:

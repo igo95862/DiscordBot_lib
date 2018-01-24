@@ -30,6 +30,12 @@ class User(DiscordObject):
         self.verified = verified
         self.email = email
 
+    def get_avatar_url(self) -> str:
+        return f"https://cdn.discordapp.com/avatars/{self.snowflake}/{self.avatar_hash}.png"
+
+    def __repr__(self):
+        return f"User: {self.username}#{self.discriminator}"
+
 
 class Channel(DiscordObject):
 
@@ -48,11 +54,13 @@ class Channel(DiscordObject):
 class TextChannel(Channel):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, type: int, last_message_id: str):
+    def __init__(self, client_bind: DiscordClient, id: str, type: int, last_message_id: str,
+                 last_pin_timestamp: str = None):
         super().__init__(client_bind, id, type)
         self.last_message_id = last_message_id
+        self.last_pin_timestamp = last_pin_timestamp
 
-    def post_message(self, content: str, force: bool = False):
+    def post_message(self, content: str, force: bool = False) -> 'Message':
         if not force:
             if len(content) > 2000:
                 raise TypeError('Message length can\'t be more then 2000 symbols')
@@ -60,7 +68,15 @@ class TextChannel(Channel):
         new_message_dict = self.client_bind.channel_message_create(self.snowflake, content)
         return Message(self.client_bind, **new_message_dict)
 
-    def message_iter(self) -> typing.Generator:
+    def post_file(self, file_name: str, file_bytes: bytes):
+        return Message(self.client_bind, **self.client_bind.channel_message_create_file(self.snowflake,
+                                                                                        file_name, file_bytes))
+
+    def message_iter(self) -> typing.Generator['Message', None, None]:
+        for message_d in self.message_dict_iter():
+            yield Message(self.client_bind, **message_d)
+
+    def message_dict_iter(self) -> typing.Generator[dict, None, None]:
         last_message_id = None
         message_list = self.client_bind.channel_message_list(self.snowflake, limit=100, before=last_message_id)
         reached_end = False
@@ -70,18 +86,21 @@ class TextChannel(Channel):
                 continue
 
             for m in message_list:
-                yield Message(self.client_bind, **m)
+                yield m
             last_message_id = message_list[-1]['id']
 
             message_list = self.client_bind.channel_message_list(self.snowflake, limit=100, before=last_message_id)
+
+    def get_last_message(self) -> 'Message':
+        return Message(self.client_bind, **self.client_bind.channel_message_get(self.snowflake, self.last_message_id))
 
 
 class DmChannel(TextChannel):
 
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClient, id: str, type: int, last_message_id: str,
-                 recipients: typing.List[dict]):
-        super().__init__(client_bind, id, type, last_message_id)
+                 recipients: typing.List[dict], last_pin_timestamp: str = None):
+        super().__init__(client_bind, id, type, last_message_id, last_pin_timestamp)
         self.recipients_dicts = recipients
 
 
@@ -89,8 +108,8 @@ class DmGroupChannel(DmChannel):
 
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClient, id: str, type: int, last_message_id: str,
-                 recipients: typing.List[dict], icon: str, owner_id: str):
-        super().__init__(client_bind, id, type, last_message_id, recipients)
+                 recipients: typing.List[dict], icon: str, owner_id: str, last_pin_timestamp: str = None):
+        super().__init__(client_bind, id, type, last_message_id, recipients, last_pin_timestamp)
         self.icon_hash = icon
         self.owner_id = owner_id
 
@@ -122,8 +141,8 @@ class Message(DiscordObject):
         self.mention_everyone = mention_everyone
         self.mentions_dicts = {x['id']: x for x in mentions}
         self.type = type
-        self.mention_roles_dicts = {x['id']: x for x in mention_roles}
-        self.attachments = attachments
+        self.mention_roles_dicts = mention_roles
+        self.attachments_dicts = attachments
         self.embeds = embeds
         self.pinned = pinned
         self.reactions = reactions
@@ -137,6 +156,25 @@ class Message(DiscordObject):
     def remove(self):
         self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
 
+    def get_author(self) -> User:
+        return User(self.client_bind, **self.author_dict)
+
+    def is_author(self, user: User) -> bool:
+        return user.snowflake == self.author_dict['id']
+
+
+class Attachment(DiscordObject):
+
+    def __init__(self, client_bind: DiscordClient, id: str, filename: str, size: int, url: str, proxy_url: str,
+                 height: int, width: int):
+        super().__init__(client_bind, id)
+        self.filename = filename
+        self.file_size_bytes = size
+        self.url = url
+        self.proxy_url = proxy_url
+        self.height = height
+        self.width = width
+
 
 class MyUser(User):
 
@@ -145,12 +183,15 @@ class MyUser(User):
         my_user_dict = new_client.me_get()
         super().__init__(new_client, **my_user_dict)
 
+    def create_dm(self, recipient_id: str) -> DmChannel:
+        return DmChannel(self.client_bind, **self.client_bind.dm_create(recipient_id))
+
     def get_my_partial_guilds(self) -> list:
         # NOTE: only supports less then 100 guilds at the moment
         json_guild_list = self.client_bind.me_guild_list()
         return [PartialGuild(self.client_bind, **g) for g in json_guild_list]
 
-    def get_channel_by_id(self, channel_id: str):
+    def get_channel_by_id(self, channel_id: str) -> 'GuildTextChannel':
         channel_dict = self.client_bind.channel_get(channel_id)
         if channel_dict['type'] == Channel.CHANNEL_TYPE_GUILD_TEXT:
             return GuildTextChannel(self.client_bind, **channel_dict)
@@ -181,7 +222,7 @@ class PartialGuild(DiscordObject):
             'permissions': self.my_permissions
         }
 
-    def extend_to_full_guild(self):
+    def extend_to_full_guild(self) -> 'Guild':
         full_guild_dict = self.client_bind.guild_get(self.snowflake)
         if 'owner' not in full_guild_dict:
             full_guild_dict['owner'] = self.me_is_owner
@@ -410,12 +451,13 @@ class GuildChannel(Channel):
 
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClient, id: str, guild_id: str, name: str, type: int, position: int,
-                 permission_overwrites: typing.List[dict], parent_id: str, nsfw: bool, last_message_id: str = None):
+                 permission_overwrites: typing.List[dict], parent_id: str, nsfw: bool,
+                 last_message_id: str = None, last_pin_timestamp: str = None):
         if self.__class__.__mro__[0] is not GuildTextChannel:
             super().__init__(client_bind, id, type)
         else:  # HACK: multiple inheritance for GuildTextChannel class workaround
             # noinspection PyArgumentList
-            super().__init__(client_bind, id, type, last_message_id)
+            super().__init__(client_bind, id, type, last_message_id, last_pin_timestamp)
         self.guild_id = guild_id
         self.channel_name = name
         self.position = position
@@ -423,15 +465,18 @@ class GuildChannel(Channel):
         self.parent_channel_id = parent_id
         self.nsfw = nsfw
 
+    def get_guild(self) -> Guild:
+        return Guild(self.client_bind, **self.client_bind.guild_get(self.guild_id))
+
 
 class GuildTextChannel(GuildChannel, TextChannel):
 
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClient, id: str, guild_id: str, name: str, type: int, position: int,
                  permission_overwrites: typing.List[dict], nsfw: bool, topic: str, last_message_id: str,
-                 parent_id: str):
+                 parent_id: str, last_pin_timestamp: str = None):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw,
-                         last_message_id)
+                         last_message_id, last_pin_timestamp)
         self.topic = topic
 
 
