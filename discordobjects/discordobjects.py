@@ -149,11 +149,11 @@ class Message(DiscordObject):
         self.nonce = nonce
         self.webhook_id = webhook_id
 
-    def edit(self, new_content: str):
+    def edit(self, new_content: str) -> None:
         self.__init__(self.client_bind,
                       **self.client_bind.channel_message_edit(self.parent_channel_id, self.snowflake, new_content))
 
-    def remove(self):
+    def remove(self) -> None:
         self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
 
     def get_author(self) -> User:
@@ -162,11 +162,15 @@ class Message(DiscordObject):
     def is_author(self, user: User) -> bool:
         return user.snowflake == self.author_dict['id']
 
+    def attachments_iter(self) -> typing.Generator['Attachment', None, None]:
+        for d in self.attachments_dicts:
+            yield Attachment(self.client_bind, **d)
+
 
 class Attachment(DiscordObject):
 
     def __init__(self, client_bind: DiscordClient, id: str, filename: str, size: int, url: str, proxy_url: str,
-                 height: int, width: int):
+                 height: int = None, width: int = None):
         super().__init__(client_bind, id)
         self.filename = filename
         self.file_size_bytes = size
@@ -174,6 +178,9 @@ class Attachment(DiscordObject):
         self.proxy_url = proxy_url
         self.height = height
         self.width = width
+
+    def is_image(self):
+        return self.height is not None
 
 
 class MyUser(User):
@@ -303,24 +310,24 @@ class Guild(PartialGuild):
 
     # Roles related calls
 
-    def get_role_by_id(self, role_id: str):
+    def get_role_by_id(self, role_id: str) -> 'Role':
         return Role(self.client_bind, **self.roles_dict_array[role_id], parent_guild_id=self.snowflake)
 
-    def find_roles_by_name_regex(self, regex) -> list:
+    def find_roles_by_name_regex(self, regex) -> typing.List['Role']:
         matched_roles_list = []
         for k, v in self.roles_dict_array.items():
             if regex.match(v['name']):
                 matched_roles_list.append(Role(self.client_bind, **v, parent_guild_id=self.snowflake))
         return matched_roles_list
 
-    def find_roles_by_name(self, regex_string: str):
-        self.find_roles_by_name_regex(re.compile(regex_string, re.IGNORECASE))
+    def find_roles_by_name(self, regex_string: str) -> typing.List['Role']:
+        return self.find_roles_by_name_regex(re.compile(regex_string, re.IGNORECASE))
 
-    def roles_dicts_iter(self):
+    def roles_dicts_iter(self) -> typing.Generator[dict, None, None]:
         for k in self.roles_dict_array:
             yield self.roles_dict_array[k]
 
-    def roles_iter(self):
+    def roles_iter(self) -> typing.Generator['Role', None, None]:
         for d in self.roles_dicts_iter():
             yield Role(self.client_bind, **d, parent_guild_id=self.snowflake)
 
@@ -330,12 +337,12 @@ class Guild(PartialGuild):
         return [x for x in self.channels_iter()]
 
     def text_channels_iter(self, download_new: bool = True) -> typing.Generator:
-        for channel_d in self.channels_iter(download_new):
+        for channel_d in self.channels_dicts_iter(download_new):
             if channel_d['type'] == Channel.CHANNEL_TYPE_GUILD_TEXT:
                 yield GuildTextChannel(self.client_bind, **channel_d)
 
-    def channels_iter(self, download_new: bool = True) -> typing.Generator:
-        for channel_d in self.channels_iter(download_new):
+    def channels_iter(self, download_new: bool = True) -> typing.Generator['Channel', None, None]:
+        for channel_d in self.channels_dicts_iter(download_new):
             yield GuildChannel(self.client_bind, **channel_d)
 
     def channels_dicts_iter(self, download_new: bool = True) -> typing.Generator[dict, None, None]:
@@ -374,6 +381,22 @@ class Guild(PartialGuild):
 
     def __repr__(self):
         return f"Guild: {self.guild_name}"
+
+
+class CustomEmoji(DiscordObject):
+
+    def __init__(self, client_bind: DiscordClient, id: str, name: str, roles: typing.List[int], user: dict,
+                 require_colons: bool, managed: bool, animated: bool):
+        super().__init__(client_bind, id)
+        self.emoji_name = name
+        self.roles_allowed = roles
+        self.user_creator_dict = user
+        self.require_colons = require_colons
+        self.managed = managed
+        self.animated = animated
+
+    def get_url(self):
+        return f"https://cdn.discordapp.com/emojis/{self.snowflake}.png"
 
 
 class Role(DiscordObject):
