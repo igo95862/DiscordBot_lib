@@ -33,7 +33,7 @@ class User(DiscordObject):
     def get_avatar_url(self) -> str:
         return f"https://cdn.discordapp.com/avatars/{self.snowflake}/{self.avatar_hash}.png"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"User: {self.username}#{self.discriminator}"
 
 
@@ -169,6 +169,7 @@ class Message(DiscordObject):
 
 class Attachment(DiscordObject):
 
+    # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClient, id: str, filename: str, size: int, url: str, proxy_url: str,
                  height: int = None, width: int = None):
         super().__init__(client_bind, id)
@@ -179,7 +180,7 @@ class Attachment(DiscordObject):
         self.height = height
         self.width = width
 
-    def is_image(self):
+    def is_image(self) -> bool:
         return self.height is not None
 
 
@@ -217,7 +218,7 @@ class PartialGuild(DiscordObject):
         if not hasattr(self, 'my_permissions') or permissions is not None:
             self.my_permissions = permissions
 
-    def leave(self):
+    def leave(self) -> None:
         self.client_bind.me_guild_leave(self.snowflake)
 
     def json_representation(self) -> dict:
@@ -237,7 +238,7 @@ class PartialGuild(DiscordObject):
             full_guild_dict['permissions'] = self.my_permissions
         return Guild(self.client_bind, **full_guild_dict)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Partial Guild: {self.guild_name}"
 
 
@@ -305,7 +306,7 @@ class Guild(PartialGuild):
     def update_from_dict(self, guild_dict: dict):
         self.__init__(self.client_bind, **guild_dict)
 
-    def refresh(self):
+    def refresh(self) -> None:
         self.update_from_dict(self.client_bind.guild_get(self.snowflake))
 
     # Roles related calls
@@ -352,7 +353,7 @@ class Guild(PartialGuild):
         for channel_k in self.channels_dicts:
             yield self.channels_dicts[channel_k]
 
-    def refresh_channels_dicts(self):
+    def refresh_channels_dicts(self) -> None:
         self.channels_dicts = {x['id']: x for x in self.client_bind.guild_channel_list(self.snowflake)}
 
     # Members related calls
@@ -364,7 +365,7 @@ class Guild(PartialGuild):
         for member_k in self.members_dicts:
             yield self.members_dicts[member_k]
 
-    def refresh_member_dicts(self):
+    def refresh_member_dicts(self) -> None:
         downloaded_member_dicts = self.client_bind.guild_members_list(self.snowflake, limit=1000)
         member_dicts = []
         member_dicts[:] = downloaded_member_dicts
@@ -379,12 +380,13 @@ class Guild(PartialGuild):
         for member_d in self.member_dicts_iter(download_new):
             yield GuildMember(self.client_bind, **member_d, parent_guild_id=self.snowflake)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Guild: {self.guild_name}"
 
 
 class CustomEmoji(DiscordObject):
 
+    # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClient, id: str, name: str, roles: typing.List[int], user: dict,
                  require_colons: bool, managed: bool, animated: bool):
         super().__init__(client_bind, id)
@@ -395,7 +397,7 @@ class CustomEmoji(DiscordObject):
         self.managed = managed
         self.animated = animated
 
-    def get_url(self):
+    def get_url(self) -> str:
         return f"https://cdn.discordapp.com/emojis/{self.snowflake}.png"
 
 
@@ -415,7 +417,7 @@ class Role(DiscordObject):
         self.mentionable = mentionable
         self.parent_guild_id = parent_guild_id
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Role: {self.role_name}"
 
 
@@ -434,7 +436,7 @@ class GuildMember(User):
         if not hasattr(self, parent_guild_id) or parent_guild_id is not None:
             self.parent_guild_id = parent_guild_id
 
-    def kick(self):
+    def kick(self) -> None:
         self.client_bind.guild_member_remove(self.parent_guild_id, self.snowflake)
 
     def add_role(self, role: Role):
@@ -450,7 +452,7 @@ class GuildMember(User):
     def update_from_dict(self, member_dict: dict):
         self.__init__(self.client_bind, **member_dict)
 
-    def refresh(self):
+    def refresh(self) -> None:
         self.update_from_dict(**self.client_bind.guild_member_get(self.parent_guild_id, self.snowflake))
 
     @typing.overload
