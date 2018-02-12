@@ -47,7 +47,11 @@ class DiscordClient:
         if remaining_limit == 0:
             sleep_time = self.rate_limit_table[table_position][1] - time()
             if sleep_time > 0:
-                self.event_loop.run_until_complete(asyncio.sleep(sleep_time))
+                if not self.event_loop.is_running():
+                    self.event_loop.run_until_complete(asyncio.sleep(sleep_time))
+                else:
+                    # HACK: blocks thread
+                    sleep(sleep_time)
         response = api_call_partial()
         if 'X-RateLimit-Remaining' in response.headers:
             self.rate_limit_table[table_position] = (
@@ -517,7 +521,7 @@ class DiscordClient:
         response.raise_for_status()
         return response.json()
         
-    def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: int) -> bool:
+    def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: str) -> bool:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_reaction_create, channel_id,
                                              message_id, emoji))
         response.raise_for_status()
@@ -536,7 +540,7 @@ class DiscordClient:
         response.raise_for_status()
         return True
         
-    def channel_message_reaction_get_users(self, channel_id: str, message_id: str, emoji: int, before: str = None,
+    def channel_message_reaction_get_users(self, channel_id: str, message_id: str, emoji: str, before: str = None,
                                            after: str = None, limit: int = None) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_reaction_get_users, channel_id,
                                              message_id, emoji, before, after, limit))
@@ -722,7 +726,7 @@ class DiscordClient:
 
     # Web socket functions
 
-    def event_queue_add(self, filter_function=lambda x: True):
+    def event_queue_add(self, filter_function=lambda x: True) -> asyncio.Queue:
         q = asyncio.Queue()
         self.socket_thread.queue_register(q, filter_function)
         return q

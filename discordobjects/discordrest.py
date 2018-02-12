@@ -507,7 +507,7 @@ class DiscordSession(RequestsSession):
         return self.post(f'{self.API_url}/channels/{channel_id}/messages',
                          files=files_array)
 
-    def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: int) -> RequestsResponse:
+    def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: str) -> RequestsResponse:
         return self.put(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')
 
     def channel_message_reaction_my_delete(self, channel_id: str, message_id: str, emoji: int) -> RequestsResponse:
