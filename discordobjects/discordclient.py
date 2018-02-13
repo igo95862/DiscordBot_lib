@@ -2,7 +2,7 @@ from . import discordsocketthread, discordrest
 import asyncio
 from time import time, sleep
 from _functools import partial as f_partial
-
+import typing
 
 class DiscordClient:
 
@@ -65,7 +65,7 @@ class DiscordClient:
         entry = self.rate_limit_table[table_position]
         return entry[0], entry[1]
 
-    # Current User REST API calls
+    # region Current User REST API calls
     def me_get(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.me_get))
         response.raise_for_status()
@@ -95,8 +95,9 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.me_connections_get))
         response.raise_for_status()
         return response.json()
+    # endregion
 
-    # Direct Messaging (DM) calls
+    # region Direct Messaging (DM) calls
     def dm_my_list(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.dm_my_list))
         response.raise_for_status()
@@ -112,7 +113,20 @@ class DiscordClient:
         response.raise_for_status()
         return response.json()
 
-    # Guild REST API calls
+    def dm_channel_user_add(self, channel_id: str, user_id: str, access_token: str,
+                            user_nick: str) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.dm_user_add, channel_id,
+                                             user_id, access_token, user_nick))
+        response.raise_for_status()
+        return response.json()
+
+    def dm_channel_user_remove(self, channel_id: str, user_id: str) -> dict:
+        response = self.rate_limit(f_partial(self.discord_session.dm_user_remove, channel_id, user_id))
+        response.raise_for_status()
+        return response.json()
+    # endregion
+
+    # region Guild REST API calls
     def guild_create(self, guild_name: str, region: str = None, icon: str = None, verification_level: int = None,
                      default_message_notifications: int = None, roles=None, channels=None) -> dict:
 
@@ -222,10 +236,20 @@ class DiscordClient:
         response.raise_for_status()
         return response.json()
         
-    def guild_members_list(self, guild_id: str, limit: int = None, after: str = None) -> dict:
+    def guild_members_list(self, guild_id: str, limit: int = None, after: str = None) -> typing.List[dict]:
         response = self.rate_limit(f_partial(self.discord_session.guild_member_list, guild_id, limit, after))
         response.raise_for_status()
         return response.json()
+
+    def guild_member_iter(self, guild_id: str, step_size: int = 1000) -> typing.Generator[dict, None, None]:
+        downloaded_member_dicts = self.guild_members_list(guild_id, limit=step_size)
+
+        while len(downloaded_member_dicts) != 0:
+            for d in downloaded_member_dicts:
+                yield d
+            last_member_id = downloaded_member_dicts[-1]['user']['id']
+            downloaded_member_dicts[:] = self.guild_members_list(guild_id, limit=step_size, after=last_member_id)
+
         
     def guild_member_add(self, guild_id: str, user_id: str, access_token: str, nick: str = None, roles: list = None,
                          mute: bool = None, deaf: bool = None) -> dict:
@@ -446,7 +470,9 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.guild_emoji_delete, guild_id, emoji_id))
         response.raise_for_status()
         return response.json()
-        
+    # endregion
+
+    # region Channel REST API calls
     def channel_get(self, channel_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.channel_get, channel_id))
         response.raise_for_status()
@@ -507,23 +533,21 @@ class DiscordClient:
         return response.json()
         
     def channel_message_create(self, channel_id: str, content: str, nonce: bool = None, tts: bool = None,
-                               embed: dict = None) -> dict:
-        response = self.rate_limit(
-            f_partial(self.discord_session.channel_message_create, channel_id, content, nonce, tts, embed),
-            (self.discord_session.channel_message_create, channel_id))
-        response.raise_for_status()
-        return response.json()
+                               embed: dict = None, files_tuples: typing.Tuple[str, bytes] = None) -> dict:
+        if files_tuples is None:
+            fp = f_partial(self.discord_session.channel_message_create_json, channel_id, content, nonce, tts, embed)
+        else:
+            fp = f_partial(self.discord_session.channel_message_create_multipart, channel_id, content, nonce, tts,
+                           files_tuples)
 
-    def channel_message_create_file(self, channel_id: str, filename: str, file_content: bytes):
-        response = self.rate_limit(
-            f_partial(self.discord_session.channel_message_create, channel_id, {filename: file_content}),
-            (self.discord_session.channel_message_create, channel_id))
+        response = self.rate_limit(fp, (self.discord_session.channel_message_create_json, channel_id))
         response.raise_for_status()
         return response.json()
         
     def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: str) -> bool:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_reaction_create, channel_id,
-                                             message_id, emoji))
+                                             message_id, emoji),
+                                   ('Emoji channel:', channel_id))
         response.raise_for_status()
         return True
         
@@ -549,7 +573,8 @@ class DiscordClient:
         
     def channel_message_reaction_delete_all(self, channel_id: str, message_id: str) -> bool:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_reaction_delete_all, channel_id,
-                                             message_id))
+                                             message_id),
+                                   ('Emoji channel:', channel_id))
         response.raise_for_status()
         return True
         
@@ -622,19 +647,9 @@ class DiscordClient:
             (self.discord_session.channel_pins_add, channel_id))
         response.raise_for_status()
         return True
-        
-    def dm_channel_user_add(self, channel_id: str, user_id: str, access_token: str,
-                            user_nick: str) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_user_add, channel_id,
-                                             user_id, access_token, user_nick))
-        response.raise_for_status()
-        return response.json()
-        
-    def dm_channel_user_remove(self, channel_id: str, user_id: str) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_user_remove, channel_id, user_id))
-        response.raise_for_status()
-        return response.json()
-        
+    # endregion
+
+    # region Invite REST API calls
     def invite_get(self, invite_code: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.invite_get, invite_code))
         response.raise_for_status()
@@ -649,7 +664,9 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.invite_accept, invite_code))
         response.raise_for_status()
         return response.json()
-        
+    # endregion
+
+    # region Webhook REST API calls
     def webhook_create(self, channel_id: str, name: str, avatar: bytes = None) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.webhook_create, channel_id, name, avatar))
         response.raise_for_status()
@@ -706,7 +723,9 @@ class DiscordClient:
             ('webhook', webhook_id))
         response.raise_for_status()
         return response.json()
-        
+    # endregion
+
+    # region Special calls
     def voice_region_list(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.voice_region_list))
         response.raise_for_status()
@@ -723,10 +742,12 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.gateway_bot_get))
         response.raise_for_status()
         return response.json()
+    # endregion
 
-    # Web socket functions
+    # region Web socket functions
 
     def event_queue_add(self, filter_function=lambda x: True) -> asyncio.Queue:
         q = asyncio.Queue()
         self.socket_thread.queue_register(q, filter_function)
         return q
+    # endregion
