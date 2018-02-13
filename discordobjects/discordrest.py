@@ -12,7 +12,7 @@ class DiscordSession(RequestsSession):
 
     API_url = 'https://discordapp.com/api/v6'
 
-    # Current User REST API calls
+    # region Current User REST API calls
 
     def me_get(self) -> RequestsResponse:
         return self.get(f'{self.API_url}/users/@me')
@@ -58,8 +58,9 @@ class DiscordSession(RequestsSession):
 
     def dm_user_remove(self, channel_id: str, user_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}/recipients/{user_id}')
+    # endregion
 
-    # Guild REST API calls
+    # region Guild REST API calls
 
     def guild_create(self, guild_name: str, region: str = None, icon: str = None, verification_level: int = None,
                      default_message_notifications: int = None, roles=None, channels=None) -> RequestsResponse:
@@ -237,7 +238,7 @@ class DiscordSession(RequestsSession):
     def guild_member_modify_multiple(
             self, guild_id: str, user_id: str, new_nick: str = None, new_roles: list = None,
             new_mute: bool = None, new_deaf: bool = None, new_channel_id: str = None) -> RequestsResponse:
-        params={}
+        params = {}
         if new_nick is not None:
             params['nick'] = new_nick
         if new_roles is not None:
@@ -420,8 +421,9 @@ class DiscordSession(RequestsSession):
 
     def guild_emoji_delete(self, guild_id: str, emoji_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/emojis/{emoji_id}')
+    # endregion
 
-    # Channels REST API calls.
+    # region Channels REST API calls.
 
     def channel_get(self, channel_id: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/channels/{channel_id}')
@@ -491,8 +493,8 @@ class DiscordSession(RequestsSession):
     def channel_message_get(self, channel_id: str, message_id: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/channels/{channel_id}/messages/{message_id}')
 
-    def channel_message_create(self, channel_id: str, content: str, nonce: bool = None, tts: bool = None,
-                               embed: dict = None) -> RequestsResponse:
+    def channel_message_create_json(self, channel_id: str, content: str, nonce: bool = None, tts: bool = None,
+                                    embed: dict = None) -> RequestsResponse:
         params = {'content': content}
         if nonce is not None:
             params['nonce'] = nonce
@@ -502,10 +504,17 @@ class DiscordSession(RequestsSession):
             params['embed'] = embed
         return self.post(f'{self.API_url}/channels/{channel_id}/messages', json=params)
 
-    def channel_message_create_file(self, channel_id: str, files_array: list) -> RequestsResponse:
-        # NOTE: need to figure out how to post message with the files at the same time
-        return self.post(f'{self.API_url}/channels/{channel_id}/messages',
-                         files=files_array)
+    def channel_message_create_multipart(self, channel_id: str, content: str = None,
+                                         nonce: bool = None, tts: bool = None,
+                                         files: list = None) -> RequestsResponse:
+        params = {}
+        if content is not None:
+            params['content'] = content
+        if nonce is not None:
+            params['nonce'] = nonce
+        if tts is not None:
+            params['tts'] = tts
+        return self.post(f'{self.API_url}/channels/{channel_id}/messages', data=params or None, files=files or None)
 
     def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: str) -> RequestsResponse:
         return self.put(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')
@@ -584,8 +593,9 @@ class DiscordSession(RequestsSession):
 
     def channel_pins_delete(self, channel_id: str, message_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}/pins/{message_id}')
+    # endregion
 
-    # Invite REST API calls
+    # region Invite REST API calls
 
     def invite_get(self, invite_code: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/invites/{invite_code}')
@@ -595,8 +605,9 @@ class DiscordSession(RequestsSession):
 
     def invite_accept(self, invite_code: str) -> RequestsResponse:
         return self.post(f'{self.API_url}/invites/{invite_code}')
+    # endregion
 
-    # Webhook REST API calls
+    # region Webhook REST API calls
 
     def webhook_create(self, channel_id: str, name: str, avatar: bytes = None) -> RequestsResponse:
         return self.post(f'{self.API_url}/channels/{channel_id}/webhooks',
@@ -659,8 +670,9 @@ class DiscordSession(RequestsSession):
         return self.post(f'{self.API_url}/webhooks/{webhook_id}/{webhook_token}', json=json_params)
 
     # TODO: slack and github webhooks
+    # endregion
 
-    # Special calls
+    # region Special calls
 
     def voice_region_list(self) -> RequestsResponse:
         return self.get(f'{self.API_url}/voice/regions')
@@ -680,6 +692,7 @@ class DiscordSession(RequestsSession):
 
     def gateway_bot_get(self) -> RequestsResponse:
         return self.get(f'{self.API_url}/gateway/bot')
+    # endregion
 
 
 def authorization_url_get(bot_id: str) -> str:
