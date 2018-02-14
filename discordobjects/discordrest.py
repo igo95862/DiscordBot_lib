@@ -535,8 +535,8 @@ class DiscordSession(RequestsSession):
                                         emoji: int) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/{user_id}')
 
-    def channel_message_reaction_get_users(self, channel_id: str, message_id: str, emoji: int, before: str = None,
-                                           after: str = None, limit: int = None) -> RequestsResponse:
+    def channel_message_reaction_list_users(self, channel_id: str, message_id: str, emoji: int, before: str = None,
+                                            after: str = None, limit: int = None) -> RequestsResponse:
         params = {}
         if before is not None:
             params['before'] = before

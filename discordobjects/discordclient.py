@@ -65,7 +65,7 @@ class DiscordClient:
         entry = self.rate_limit_table[table_position]
         return entry[0], entry[1]
 
-    # region Current User REST API calls
+    # region Current User functions
     def me_get(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.me_get))
         response.raise_for_status()
@@ -97,7 +97,7 @@ class DiscordClient:
         return response.json()
     # endregion
 
-    # region Direct Messaging (DM) calls
+    # region Direct Messaging (DM) functions
     def dm_my_list(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.dm_my_list))
         response.raise_for_status()
@@ -126,7 +126,8 @@ class DiscordClient:
         return response.json()
     # endregion
 
-    # region Guild REST API calls
+    # region Guild functions
+    # region Guild
     def guild_create(self, guild_name: str, region: str = None, icon: str = None, verification_level: int = None,
                      default_message_notifications: int = None, roles=None, channels=None) -> dict:
 
@@ -197,7 +198,9 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.guild_delete, guild_id))
         response.raise_for_status()
         return True
+    # endregion
 
+    # region Guild Channels
     def guild_channel_list(self, guild_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_channel_list, guild_id))
         response.raise_for_status()
@@ -230,7 +233,9 @@ class DiscordClient:
                                              list_of_channels))
         response.raise_for_status()
         return True
+    # endregion
 
+    # region Guild Members
     def guild_member_get(self, guild_id: str, user_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_member_get, guild_id, user_id))
         response.raise_for_status()
@@ -250,7 +255,6 @@ class DiscordClient:
             last_member_id = downloaded_member_dicts[-1]['user']['id']
             downloaded_member_dicts[:] = self.guild_members_list(guild_id, limit=step_size, after=last_member_id)
 
-        
     def guild_member_add(self, guild_id: str, user_id: str, access_token: str, nick: str = None, roles: list = None,
                          mute: bool = None, deaf: bool = None) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_member_add, guild_id, user_id, access_token,
@@ -314,7 +318,8 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.guild_member_remove, guild_id, user_id))
         response.raise_for_status()
         return True
-        
+    # endregion
+
     def guild_ban_list(self, guild_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_ban_list, guild_id))
         response.raise_for_status()
@@ -330,7 +335,8 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.guild_ban_remove, guild_id, user_id))
         response.raise_for_status()
         return True
-        
+
+    # region Guild Roles
     def guild_role_list(self, guild_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_role_list, guild_id))
         response.raise_for_status()
@@ -385,7 +391,8 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.guild_role_delete, guild_id, role_id))
         response.raise_for_status()
         return response.json()
-        
+    # endregion
+
     def guild_prune_get_count(self, guild_id: str, days: int) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_prune_get_count, guild_id, days))
         response.raise_for_status()
@@ -443,7 +450,8 @@ class DiscordClient:
         response = self.rate_limit(f_partial(self.discord_session.guild_embed_modify, guild_id, enabled, channel_id))
         response.raise_for_status()
         return response.json()
-        
+
+    # region Guild Emoji
     def guild_emoji_list(self, guild_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.guild_emoji_list, guild_id))
         response.raise_for_status()
@@ -471,8 +479,9 @@ class DiscordClient:
         response.raise_for_status()
         return response.json()
     # endregion
+    # endregion
 
-    # region Channel REST API calls
+    # region Channel functions
     def channel_get(self, channel_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.channel_get, channel_id))
         response.raise_for_status()
@@ -521,11 +530,20 @@ class DiscordClient:
         return response.json()
         
     def channel_message_list(self, channel_id: str, limit: int = None, around: int = None, before: str = None,
-                             after: str = None) -> dict:
+                             after: str = None) -> typing.List[dict]:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_list, channel_id,
                                              limit, around, before, after))
         response.raise_for_status()
         return response.json()
+
+    def channel_message_iter(self, channel_id: str, step_size: int = 100) -> typing.Generator[dict, None, None]:
+        downloaded_messages_dicts = self.channel_message_list(channel_id, limit=step_size)
+
+        while len(downloaded_messages_dicts) != 0:
+            for d in downloaded_messages_dicts:
+                yield d
+            last_message_id = downloaded_messages_dicts[-1]['id']
+            downloaded_messages_dicts[:] = self.channel_message_list(channel_id, limit=step_size, before=last_message_id)
         
     def channel_message_get(self, channel_id: str, message_id: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_get, channel_id, message_id))
@@ -564,12 +582,24 @@ class DiscordClient:
         response.raise_for_status()
         return True
         
-    def channel_message_reaction_get_users(self, channel_id: str, message_id: str, emoji: str, before: str = None,
-                                           after: str = None, limit: int = None) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.channel_message_reaction_get_users, channel_id,
+    def channel_message_reaction_list_users(self, channel_id: str, message_id: str, emoji: str, before: str = None,
+                                            after: str = None, limit: int = None) -> typing.List[dict]:
+        response = self.rate_limit(f_partial(self.discord_session.channel_message_reaction_list_users, channel_id,
                                              message_id, emoji, before, after, limit))
         response.raise_for_status()
         return response.json()
+
+    def channel_message_reaction_iter_users(self, channel_id: str, message_id: str, emoji: str,
+                                            step_size: int = 100) -> typing.Generator[dict, None, None]:
+        downloaded_users_dicts = self.channel_message_reaction_list_users(channel_id, message_id, emoji,
+                                                                          limit=step_size)
+
+        while len(downloaded_users_dicts) != 0:
+            for d in downloaded_users_dicts:
+                yield d
+            last_user_id = downloaded_users_dicts[-1]['id']
+            downloaded_users_dicts[:] = self.channel_message_reaction_list_users(channel_id, message_id, emoji,
+                                                                          limit=step_size, after=last_user_id)
         
     def channel_message_reaction_delete_all(self, channel_id: str, message_id: str) -> bool:
         response = self.rate_limit(f_partial(self.discord_session.channel_message_reaction_delete_all, channel_id,
@@ -649,7 +679,7 @@ class DiscordClient:
         return True
     # endregion
 
-    # region Invite REST API calls
+    # region Invites functions
     def invite_get(self, invite_code: str) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.invite_get, invite_code))
         response.raise_for_status()
@@ -666,7 +696,7 @@ class DiscordClient:
         return response.json()
     # endregion
 
-    # region Webhook REST API calls
+    # region Webhook functions
     def webhook_create(self, channel_id: str, name: str, avatar: bytes = None) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.webhook_create, channel_id, name, avatar))
         response.raise_for_status()
@@ -725,7 +755,7 @@ class DiscordClient:
         return response.json()
     # endregion
 
-    # region Special calls
+    # region Special functions
     def voice_region_list(self) -> dict:
         response = self.rate_limit(f_partial(self.discord_session.voice_region_list))
         response.raise_for_status()
