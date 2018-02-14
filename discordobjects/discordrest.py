@@ -151,6 +151,7 @@ class DiscordSession(RequestsSession):
     def guild_delete(self, guild_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}')
 
+    # region Guild Channels
     def guild_channel_list(self, guild_id: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/channels')
 
@@ -205,7 +206,9 @@ class DiscordSession(RequestsSession):
         # Position integer can also be negative.
         # Unlike what documentation says you can pass a single channel to this call.
         return self.patch(f'{self.API_url}/guilds/{guild_id}/channels', json=list_of_channels)
+    # endregion
 
+    # region Guild Member
     def guild_member_get(self, guild_id: str, user_id: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/members/{user_id}')
 
@@ -278,7 +281,9 @@ class DiscordSession(RequestsSession):
 
     def guild_member_remove(self, guild_id: str, user_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/members/{user_id}')
+    # endregion
 
+    # region Guild Ban
     def guild_ban_list(self, guild_id: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/bans')
 
@@ -289,7 +294,9 @@ class DiscordSession(RequestsSession):
 
     def guild_ban_remove(self, guild_id: str, user_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/bans/{user_id}')
+    # endregion
 
+    # region Guild Role
     def guild_role_list(self, guild_id: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/roles')
 
@@ -347,6 +354,7 @@ class DiscordSession(RequestsSession):
 
     def guild_role_delete(self, guild_id: str, role_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/roles/{role_id}')
+    # endregion
 
     def guild_prune_get_count(self, guild_id: str, days: int) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/prune', params={'days': days})
@@ -396,8 +404,7 @@ class DiscordSession(RequestsSession):
 
         return self.patch(f'{self.API_url}/guilds/{guild_id}/embed', json=params)
 
-    # Guild emoji calls
-
+    # region Guild emoji
     def guild_emoji_list(self, guild_id: str) -> RequestsResponse:
         return self.get(f'{self.API_url}/guilds/{guild_id}/emojis')
 
@@ -421,6 +428,7 @@ class DiscordSession(RequestsSession):
 
     def guild_emoji_delete(self, guild_id: str, emoji_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/guilds/{guild_id}/emojis/{emoji_id}')
+    # endregion
     # endregion
 
     # region Channels REST API calls.
@@ -477,6 +485,7 @@ class DiscordSession(RequestsSession):
     def channel_delete(self, channel_id: str) -> RequestsResponse:
         return self.delete(f'{self.API_url}/channels/{channel_id}')
 
+    # region Messages
     def channel_message_list(self, channel_id: str, limit: int = None, around: str = None,
                              before: str = None, after: str = None) -> RequestsResponse:
         params = {}
@@ -557,6 +566,7 @@ class DiscordSession(RequestsSession):
     def channel_message_bulk_delete(self, channel_id: str, messages_array: list) -> RequestsResponse:
         return self.post(f'{self.API_url}/channels/{channel_id}/messages/bulk-delete',
                          json={'messages': messages_array})
+    # endregion
 
     def channel_permissions_overwrite_edit(self, channel_id: str, overwrite_id: str, allow_permissions: int,
                                            deny_permissions: int, type_of_permissions: str) -> RequestsResponse:
