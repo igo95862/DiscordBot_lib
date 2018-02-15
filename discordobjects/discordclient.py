@@ -776,8 +776,10 @@ class DiscordClient:
 
     # region Web socket functions
 
-    def event_queue_add(self, filter_function=lambda x: True) -> asyncio.Queue:
-        q = asyncio.Queue()
-        self.socket_thread.queue_register(q, filter_function)
-        return q
+    def event_queue_add(self, event_name: str) -> discordsocketthread.DiscordSocketThread.DiscordEventQueue:
+        return self.socket_thread.event_queue_create(event_name)
+
+    def event_event_add(self,  condition_func: typing.Callable,
+                        event_name: str) -> discordsocketthread.DiscordSocketThread.DiscordEventEvent:
+        return self.socket_thread.event_event_create(condition_func, event_name)
     # endregion

@@ -1,8 +1,9 @@
 from .discordclient import DiscordClient
 import typing
 import re
+from . import socket_events_names
 
-__all__ = ['User', 'MyUser', 'DmChannel', 'DmGroupChannel', 'Message', 'PartialGuild',
+__all__ = ['User', 'MyUser', 'DmChannel', 'DmGroupChannel', 'Message', 'Reaction', 'PartialGuild',
            'Guild', 'GuildTextChannel', 'GuildVoiceChannel', 'GuildCategory',
            'GuildMember', 'Role']
 
@@ -14,6 +15,9 @@ class DiscordObject:
     def __init__(self, client_bind: DiscordClient = None, snowflake: str = None):
         self.client_bind = client_bind
         self.snowflake = snowflake
+
+    def __eq__(self, other: 'DiscordObject') -> bool:
+        return self.snowflake == other.snowflake
 
 
 class User(DiscordObject):
@@ -32,6 +36,12 @@ class User(DiscordObject):
 
     def get_avatar_url(self) -> str:
         return f"https://cdn.discordapp.com/avatars/{self.snowflake}/{self.avatar_hash}.png"
+
+    def get_name_formatted(self) -> str:
+        return f"{self.username}#{self.discriminator}"
+
+    def __str__(self) -> str:
+        return f"<@{self.snowflake}>"
 
     def __repr__(self) -> str:
         return f"User: {self.username}#{self.discriminator}"
@@ -94,6 +104,9 @@ class TextChannel(Channel):
     def get_last_message(self) -> 'Message':
         return Message(self.client_bind, **self.client_bind.channel_message_get(self.snowflake, self.last_message_id))
 
+    def on_message_created(self) -> None:
+        pass
+
 
 class DmChannel(TextChannel):
 
@@ -149,12 +162,40 @@ class Message(DiscordObject):
         self.nonce = nonce
         self.webhook_id = webhook_id
 
+    def update_from_dict(self, message_dict: dict) -> None:
+        self.__init__(self.client_bind, **message_dict)
+
+    def refresh(self) -> None:
+        self.update_from_dict(self.client_bind.channel_message_get(self.parent_channel_id, self.snowflake))
+
     def edit(self, new_content: str) -> None:
-        self.__init__(self.client_bind,
-                      **self.client_bind.channel_message_edit(self.parent_channel_id, self.snowflake, new_content))
+        self.update_from_dict(self.client_bind.channel_message_edit(self.parent_channel_id, self.snowflake,
+                                                                    new_content))
 
     def remove(self) -> None:
         self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
+
+    def add_unicode_emoji(self, unicode_emoji: str):
+        self.client_bind.channel_message_reaction_create(self.parent_channel_id, self.snowflake, unicode_emoji)
+
+    def clear_all_emoji(self) -> None:
+        self.client_bind.channel_message_reaction_delete_all(self.parent_channel_id, self.snowflake)
+
+    def gen_reacted_users_by_unicode_emoji(self, unicode_emoji: str) -> typing.Generator['User', None, None]:
+        for d in self.client_bind.channel_message_reaction_iter_users(
+                self.parent_channel_id, self.snowflake, unicode_emoji,
+                ):
+            yield User(self.client_bind, **d)
+
+    def get_reactions(self) -> typing.List['Reaction']:
+        self.refresh()
+        if self.reactions is not None:
+            return [Reaction(self.client_bind, **x, parent_message=self) for x in self.reactions]
+        else:
+            return []
+
+    def get_content(self) -> str:
+        return self.content
 
     def get_author(self) -> User:
         return User(self.client_bind, **self.author_dict)
@@ -162,9 +203,42 @@ class Message(DiscordObject):
     def is_author(self, user: User) -> bool:
         return user.snowflake == self.author_dict['id']
 
+    def get_mentioned_users(self) -> typing.List['User']:
+        return [User(self.client_bind, **self.mentions_dicts[x]) for x in self.mentions_dicts]
+
     def attachments_iter(self) -> typing.Generator['Attachment', None, None]:
         for d in self.attachments_dicts:
             yield Attachment(self.client_bind, **d)
+
+    def on_emoji_created(self) -> None:
+        pass
+
+
+class PartialEmoji:
+
+    # noinspection PyShadowingBuiltins
+    def __init__(self, id: str, name: str):
+        self.emoji_id = id
+        self.name = name
+
+    def is_unicode_emoji(self) -> bool:
+        return self.emoji_id is None
+
+
+class Reaction:
+
+    def __init__(self, client_bind: DiscordClient, count: int, me: bool, emoji: dict, parent_message: Message):
+        self.client_bind = client_bind
+        self.count = count
+        self.me_reacted = me
+        self.partial_emoji_dict = emoji
+        self.parent_message = parent_message
+
+    def user_reacted_gen(self) -> typing.Generator['User', None, None]:
+        for d in self.client_bind.channel_message_reaction_iter_users(
+                self.parent_message.parent_channel_id, self.parent_message.snowflake,
+                self.partial_emoji_dict['id'] or self.partial_emoji_dict['name']):
+            yield User(self.client_bind, **d)
 
 
 class Attachment(DiscordObject):
@@ -198,6 +272,9 @@ class MyUser(User):
         # NOTE: only supports less then 100 guilds at the moment
         json_guild_list = self.client_bind.me_guild_list()
         return [PartialGuild(self.client_bind, **g) for g in json_guild_list]
+
+    def get_guild_by_id(self, guild_id: str) -> 'Guild':
+        return Guild(self.client_bind, **self.client_bind.guild_get(guild_id))
 
     def get_channel_by_id(self, channel_id: str) -> 'GuildTextChannel':
         channel_dict = self.client_bind.channel_get(channel_id)
@@ -358,6 +435,27 @@ class Guild(PartialGuild):
 
     # Members related calls
 
+    async def on_new_member_join(self) -> typing.Generator['GuildMember', None, None]:
+        q = self.client_bind.event_queue_add(socket_events_names.GUILD_MEMBER_ADD)
+        with q:
+            while True:
+                r = await q.get()
+                new_member_guild_id = r.pop('guild_id')
+                if new_member_guild_id == self.snowflake:
+                    yield GuildMember(self.client_bind, **r, parent_guild_id=new_member_guild_id)
+
+    async def on_user_leave(self) -> typing.Generator['User', None, None]:
+        q = self.client_bind.event_queue_add(socket_events_names.GUILD_MEMBER_REMOVE)
+        with q:
+            while True:
+                r = await q.get()
+                if r['guild_id'] == self.snowflake:
+                    yield User(self.client_bind, **r['user'])
+
+    def get_member_from_user(self, user: User) -> 'GuildMember':
+        return GuildMember(self.client_bind, **self.client_bind.guild_member_get(self.snowflake, user.snowflake),
+                           parent_guild_id=self.snowflake)
+
     def member_dicts_iter(self, download_new: bool = True) -> typing.Generator[dict, None, None]:
         if download_new:
             self.refresh_member_dicts()
@@ -380,6 +478,7 @@ class Guild(PartialGuild):
         for member_d in self.member_dicts_iter(download_new):
             yield GuildMember(self.client_bind, **member_d, parent_guild_id=self.snowflake)
 
+    # __ functions
     def __repr__(self) -> str:
         return f"Guild: {self.guild_name}"
 
@@ -417,6 +516,9 @@ class Role(DiscordObject):
         self.mentionable = mentionable
         self.parent_guild_id = parent_guild_id
 
+    def has_name(self, other_name: str) -> bool:
+        return self.role_name == other_name
+
     def __repr__(self) -> str:
         return f"Role: {self.role_name}"
 
@@ -424,16 +526,16 @@ class Role(DiscordObject):
 class GuildMember(User):
 
     def __init__(self, client_bind: DiscordClient, user: dict, roles: typing.Tuple[str],
-                 joined_at: int, is_deaf: bool, is_mute: bool, nick: str = None,
+                 joined_at: int, deaf: bool, mute: bool, nick: str = None,
                  parent_guild_id: str = None):
         super().__init__(client_bind, **user)
 
         self.nickname = nick
         self.roles_ids = roles
         self.joined_at = joined_at
-        self.is_deaf = is_deaf
-        self.is_mute = is_mute
-        if not hasattr(self, parent_guild_id) or parent_guild_id is not None:
+        self.is_deaf = deaf
+        self.is_mute = mute
+        if not hasattr(self, 'parent_guild_id') or parent_guild_id is not None:
             self.parent_guild_id = parent_guild_id
 
     def kick(self) -> None:
@@ -444,6 +546,12 @@ class GuildMember(User):
 
     def remove_role(self, role: Role):
         self.client_bind.guild_member_role_remove(self.parent_guild_id, self.snowflake, role.snowflake)
+
+    def set_roles(self, roles: typing.List[Role]):
+        self.client_bind.guild_member_modify_roles(self.parent_guild_id, self.snowflake, [x.snowflake for x in roles])
+
+    def set_roles_by_ids(self, roles_ids: typing.List[str]):
+        self.client_bind.guild_member_modify_roles(self.parent_guild_id, self.snowflake, roles_ids)
 
     def roles_ids_iter(self) -> typing.Generator[str, None, None]:
         for i in self.roles_ids:
