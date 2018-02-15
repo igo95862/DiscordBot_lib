@@ -49,7 +49,7 @@ class DiscordSocket:
         #  If the hook returns True boolean the hook will be removed
 
     async def _connect(self):
-        self.websocket = await websockets.connect(self.socket_url, loop=self.event_loop)
+        self.websocket = await websockets.connect(self.socket_url, loop=self.event_loop, timeout=60)
         self.hello_payload = json.loads(await self.websocket.recv())
         self.heartbeat_interval = self.hello_payload['d']['heartbeat_interval'] / 1000
 

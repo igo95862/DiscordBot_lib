@@ -10,19 +10,38 @@ class DiscordSession(RequestsSession):
         if proxies is not None:
             self.proxies = proxies
 
-    API_url = 'https://discordapp.com/api/v6'
+    API_URL = 'https://discordapp.com/api/v6'
+    API_URL_LENGTH = len(API_URL)
+    TIMEOUT_OVERWRITE = 10
+
+    # region Timeout overwrites
+    def get(self, *args, **kwargs) -> RequestsResponse:
+        return super().get(*args, **kwargs, timeout=self.TIMEOUT_OVERWRITE)
+
+    def post(self, *args, **kwargs) -> RequestsResponse:
+        return super().post(*args, **kwargs, timeout=self.TIMEOUT_OVERWRITE)
+
+    def patch(self, *args, **kwargs) -> RequestsResponse:
+        return super().patch(*args, **kwargs, timeout=self.TIMEOUT_OVERWRITE)
+
+    def delete(self, *args, **kwargs) -> RequestsResponse:
+        return super().delete(*args, **kwargs, timeout=self.TIMEOUT_OVERWRITE)
+
+    def put(self, *args, **kwargs) -> RequestsResponse:
+        return super().put(*args, **kwargs, timeout=self.TIMEOUT_OVERWRITE)
+    # endregion
 
     # region Current User REST API calls
 
     def me_get(self) -> RequestsResponse:
-        return self.get(f'{self.API_url}/users/@me')
+        return self.get(f'{self.API_URL}/users/@me')
 
     def user_get(self, user_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/users/{user_id}')
+        return self.get(f'{self.API_URL}/users/{user_id}')
 
     def me_modify(self, username: str) -> RequestsResponse:
         # TODO: add avatar change support
-        return self.patch(f'{self.API_url}/users/@me', json={'username': username})
+        return self.patch(f'{self.API_URL}/users/@me', json={'username': username})
 
     def me_guild_list(self, before: str = None, after: str = None, limit: int = None) -> RequestsResponse:
         params = {}
@@ -32,32 +51,32 @@ class DiscordSession(RequestsSession):
             params['after'] = after
         if limit is not None:
             params['limit'] = limit
-        return self.get(f'{self.API_url}/users/@me/guilds', params=params or None)
+        return self.get(f'{self.API_URL}/users/@me/guilds', params=params or None)
 
     def me_guild_leave(self, guild_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/users/@me/guilds/{guild_id}')
+        return self.delete(f'{self.API_URL}/users/@me/guilds/{guild_id}')
 
     def me_connections_get(self) -> RequestsResponse:
-        return self.get(f'{self.API_url}/users/@me/connections')
+        return self.get(f'{self.API_URL}/users/@me/connections')
 
     # Direct Messaging (DM) calls
 
     def dm_my_list(self) -> RequestsResponse:
-        return self.get(f'{self.API_url}/users/@me/channels')
+        return self.get(f'{self.API_URL}/users/@me/channels')
 
     def dm_create(self, recipient_id: str) -> RequestsResponse:
-        return self.post(f'{self.API_url}/users/@me/channels', json={'recipient_id': recipient_id})
+        return self.post(f'{self.API_URL}/users/@me/channels', json={'recipient_id': recipient_id})
 
     def dm_create_group(self, access_tokens: list, nicks: dict) -> RequestsResponse:
         # NOTE: Have not been tested.
-        return self.post(f'{self.API_url}/users/@me/channels', json={'access_tokens': access_tokens, 'nicks': nicks})
+        return self.post(f'{self.API_URL}/users/@me/channels', json={'access_tokens': access_tokens, 'nicks': nicks})
 
     def dm_user_add(self, channel_id: str, user_id: str, access_token: str, user_nick: str) -> RequestsResponse:
-        return self.put(f'{self.API_url}/channels/{channel_id}/recipients/{user_id}',
+        return self.put(f'{self.API_URL}/channels/{channel_id}/recipients/{user_id}',
                         json={'access_token': access_token, 'nick': user_nick})
 
     def dm_user_remove(self, channel_id: str, user_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/recipients/{user_id}')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}/recipients/{user_id}')
     # endregion
 
     # region Guild REST API calls
@@ -78,13 +97,13 @@ class DiscordSession(RequestsSession):
         if channels is not None:
             json_params['channels'] = channels
 
-        return self.post(f'{self.API_url}/guilds', json=json_params)
+        return self.post(f'{self.API_URL}/guilds', json=json_params)
 
     def guild_get(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}')
 
     def guild_modify(self, guild_id: str, params: dict) -> RequestsResponse:
-        return self.patch(f'{self.API_url}/guilds/{guild_id}', json=params)
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}', json=params)
 
     # Guild modify sub functions
     def guild_modify_multiple(
@@ -149,15 +168,15 @@ class DiscordSession(RequestsSession):
         return self.guild_modify(guild_id, {'system_channel_id': new_system_channel_id})
 
     def guild_delete(self, guild_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/guilds/{guild_id}')
+        return self.delete(f'{self.API_URL}/guilds/{guild_id}')
 
     # region Guild Channels
     def guild_channel_list(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/channels')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/channels')
 
     def _guild_channel_create(self, guild_id: str, params: dict) -> RequestsResponse:
         # NOTE: this function should not be called directly
-        return self.post(f'{self.API_url}/guilds/{guild_id}/channels', json=params)
+        return self.post(f'{self.API_URL}/guilds/{guild_id}/channels', json=params)
 
     def guild_channel_create_text(self, guild_id: str, name: str, permission_overwrites: dict = None,
                                   parent_id: str = None, nsfw: bool = None) -> RequestsResponse:
@@ -205,12 +224,12 @@ class DiscordSession(RequestsSession):
         # Multiple channels can have same position. There can be gaps between them.
         # Position integer can also be negative.
         # Unlike what documentation says you can pass a single channel to this call.
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/channels', json=list_of_channels)
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/channels', json=list_of_channels)
     # endregion
 
     # region Guild Member
     def guild_member_get(self, guild_id: str, user_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/members/{user_id}')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/members/{user_id}')
 
     def guild_member_list(self, guild_id: str, limit: int = None, after: str = None) -> RequestsResponse:
         # NOTE: default amount of users returned is just one
@@ -219,7 +238,7 @@ class DiscordSession(RequestsSession):
             params['limit'] = limit
         if after is not None:
             params['after'] = after
-        return self.get(f'{self.API_url}/guilds/{guild_id}/members', params=params or None)
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/members', params=params or None)
 
     def guild_member_add(self, guild_id: str, user_id: str, access_token: str, nick: str = None, roles: list = None,
                          mute: bool = None, deaf: bool = None) -> RequestsResponse:
@@ -232,10 +251,10 @@ class DiscordSession(RequestsSession):
             params['mute'] = mute
         if deaf is not None:
             params['deaf'] = deaf
-        return self.put(f'{self.API_url}/guilds/{guild_id}/members/{user_id}', json=params)
+        return self.put(f'{self.API_URL}/guilds/{guild_id}/members/{user_id}', json=params)
 
     def guild_member_modify(self, guild_id: str, user_id: str, params: dict) -> RequestsResponse:
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/members/{user_id}', json=params)
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/members/{user_id}', json=params)
 
     # Guild member modify sub functions
     def guild_member_modify_multiple(
@@ -271,34 +290,34 @@ class DiscordSession(RequestsSession):
 
     def guild_member_me_nick_set(self, guild_id: str, nick_to_set: str) -> RequestsResponse:
         # IDEA: move to other me functions?
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/members/@me/nick', json={'nick': nick_to_set})
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/members/@me/nick', json={'nick': nick_to_set})
 
     def guild_member_role_add(self, guild_id: str, user_id: str, role_id: str) -> RequestsResponse:
-        return self.put(f'{self.API_url}/guilds/{guild_id}/members/{user_id}/roles/{role_id}')
+        return self.put(f'{self.API_URL}/guilds/{guild_id}/members/{user_id}/roles/{role_id}')
 
     def guild_member_role_remove(self, guild_id: str, user_id: str, role_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/guilds/{guild_id}/members/{user_id}/roles/{role_id}')
+        return self.delete(f'{self.API_URL}/guilds/{guild_id}/members/{user_id}/roles/{role_id}')
 
     def guild_member_remove(self, guild_id: str, user_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/guilds/{guild_id}/members/{user_id}')
+        return self.delete(f'{self.API_URL}/guilds/{guild_id}/members/{user_id}')
     # endregion
 
     # region Guild Ban
     def guild_ban_list(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/bans')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/bans')
 
     def guild_ban_create(self, guild_id: str, user_id: str, delete_messages_days=None) -> RequestsResponse:
         if delete_messages_days is not None:
             delete_messages_days = {'delete-message-days': delete_messages_days}
-        return self.put(f'{self.API_url}/guilds/{guild_id}/bans/{user_id}', params=delete_messages_days)
+        return self.put(f'{self.API_URL}/guilds/{guild_id}/bans/{user_id}', params=delete_messages_days)
 
     def guild_ban_remove(self, guild_id: str, user_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/guilds/{guild_id}/bans/{user_id}')
+        return self.delete(f'{self.API_URL}/guilds/{guild_id}/bans/{user_id}')
     # endregion
 
     # region Guild Role
     def guild_role_list(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/roles')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/roles')
 
     def guild_role_create(self, guild_id: str, permissions: int = None, color: int = None,
                           hoist: bool = None, mentionable: bool = None) -> RequestsResponse:
@@ -311,15 +330,15 @@ class DiscordSession(RequestsSession):
             params['hoist'] = hoist
         if permissions is not None:
             params['mentionable'] = mentionable
-        return self.post(f'{self.API_url}/guilds/{guild_id}/roles', json=params or None)
+        return self.post(f'{self.API_URL}/guilds/{guild_id}/roles', json=params or None)
 
     def guild_role_position_modify(self, guild_id: str, list_of_role_positions: list) -> RequestsResponse:
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/roles', json=list_of_role_positions)
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/roles', json=list_of_role_positions)
 
     # Guild Role modify sub-functions
 
     def guild_role_modify(self, guild_id: str, role_id: str, params: dict) -> RequestsResponse:
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/roles/{role_id}', json=params)
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/roles/{role_id}', json=params)
 
     def guild_role_modify_multiple(
             self, guild_id: str, role_id: str, new_name: str = None, new_permissions: int = None, new_color: int = None,
@@ -353,33 +372,33 @@ class DiscordSession(RequestsSession):
         return self.guild_role_modify(guild_id, role_id, {'mentionable': mentionable})
 
     def guild_role_delete(self, guild_id: str, role_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/guilds/{guild_id}/roles/{role_id}')
+        return self.delete(f'{self.API_URL}/guilds/{guild_id}/roles/{role_id}')
     # endregion
 
     def guild_prune_get_count(self, guild_id: str, days: int) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/prune', params={'days': days})
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/prune', params={'days': days})
 
     def guild_prune_begin(self, guild_id: str, days: int) -> RequestsResponse:
-        return self.post(f'{self.API_url}/guilds/{guild_id}/prune', params={'days': days})
+        return self.post(f'{self.API_URL}/guilds/{guild_id}/prune', params={'days': days})
 
     def guild_voice_region_list(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/regions')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/regions')
 
     def guild_invite_list(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/invites')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/invites')
 
     # NOTE: guild integration calls had not been tested.
 
     def guild_integration_list(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/integrations')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/integrations')
 
     def guild_integration_create(self, guild_id: str, integration_type: str, integration_id: str) -> RequestsResponse:
-        return self.post(f'{self.API_url}/guilds/{guild_id}/integrations', json={'type': integration_type,
+        return self.post(f'{self.API_URL}/guilds/{guild_id}/integrations', json={'type': integration_type,
                                                                                  'id': integration_id})
 
     def guild_integration_modify(self, guild_id: str, integration_id: str, expire_behavior: int,
                                  expire_grace_period: int, enable_emoticons: int) -> RequestsResponse:
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/integrations/{integration_id}',
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/integrations/{integration_id}',
                           json={
                               'expire_behavior': expire_behavior,
                               'expire_grace_period': expire_grace_period,
@@ -387,13 +406,13 @@ class DiscordSession(RequestsSession):
                           })
 
     def guild_integration_delete(self, guild_id: str, integration_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/guilds/{guild_id}/integrations/{integration_id}')
+        return self.delete(f'{self.API_URL}/guilds/{guild_id}/integrations/{integration_id}')
 
     def guild_integration_sync(self, guild_id: str, integration_id: str) -> RequestsResponse:
-        return self.post(f'{self.API_url}/guilds/{guild_id}/integrations/{integration_id}/sync')
+        return self.post(f'{self.API_URL}/guilds/{guild_id}/integrations/{integration_id}/sync')
 
     def guild_embed_get(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/embed')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/embed')
 
     def guild_embed_modify(self, guild_id: str, enabled: bool = None, channel_id: str = None) -> RequestsResponse:
         params = {}
@@ -402,17 +421,17 @@ class DiscordSession(RequestsSession):
         if channel_id is not None:
             params['channel_id'] = channel_id
 
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/embed', json=params)
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/embed', json=params)
 
     # region Guild emoji
     def guild_emoji_list(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/emojis')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/emojis')
 
     def guild_emoji_get(self, guild_id: str, emoji_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/emojis/{emoji_id}')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/emojis/{emoji_id}')
 
     def guild_emoji_create(self, guild_id: str, emoji_name: str, image: str, roles: tuple = ()) -> RequestsResponse:
-        return self.post(f'{self.API_url}/guilds/{guild_id}/emojis',
+        return self.post(f'{self.API_URL}/guilds/{guild_id}/emojis',
                          json={
                              'name': emoji_name,
                              'image': image,
@@ -420,24 +439,24 @@ class DiscordSession(RequestsSession):
                          })
 
     def guild_emoji_modify(self, guild_id: str, emoji_id: str, emoji_name: str, roles: tuple = ()) -> RequestsResponse:
-        return self.patch(f'{self.API_url}/guilds/{guild_id}/emojis/{emoji_id}',
+        return self.patch(f'{self.API_URL}/guilds/{guild_id}/emojis/{emoji_id}',
                           json={
                               'name': emoji_name,
                               'roles': roles
                           })
 
     def guild_emoji_delete(self, guild_id: str, emoji_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/guilds/{guild_id}/emojis/{emoji_id}')
+        return self.delete(f'{self.API_URL}/guilds/{guild_id}/emojis/{emoji_id}')
     # endregion
     # endregion
 
     # region Channels REST API calls.
 
     def channel_get(self, channel_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/channels/{channel_id}')
+        return self.get(f'{self.API_URL}/channels/{channel_id}')
 
     def channel_modify(self, channel_id: str, params: dict) -> RequestsResponse:
-        return self.patch(f'{self.API_url}/channels/{channel_id}', json=params)
+        return self.patch(f'{self.API_URL}/channels/{channel_id}', json=params)
 
     # Channel modify sub-functions
     def channel_modify_multiple(
@@ -483,7 +502,7 @@ class DiscordSession(RequestsSession):
         return self.channel_modify(channel_id, {'parent_id': parent_id})
 
     def channel_delete(self, channel_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}')
 
     # region Messages
     def channel_message_list(self, channel_id: str, limit: int = None, around: str = None,
@@ -497,10 +516,10 @@ class DiscordSession(RequestsSession):
             params['before'] = before
         elif after is not None:
             params['after'] = after
-        return self.get(f'{self.API_url}/channels/{channel_id}/messages', params=params or None)
+        return self.get(f'{self.API_URL}/channels/{channel_id}/messages', params=params or None)
 
     def channel_message_get(self, channel_id: str, message_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/channels/{channel_id}/messages/{message_id}')
+        return self.get(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}')
 
     def channel_message_create_json(self, channel_id: str, content: str, nonce: bool = None, tts: bool = None,
                                     embed: dict = None) -> RequestsResponse:
@@ -511,7 +530,7 @@ class DiscordSession(RequestsSession):
             params['tts'] = tts
         if embed is not None:
             params['embed'] = embed
-        return self.post(f'{self.API_url}/channels/{channel_id}/messages', json=params)
+        return self.post(f'{self.API_URL}/channels/{channel_id}/messages', json=params)
 
     def channel_message_create_multipart(self, channel_id: str, content: str = None,
                                          nonce: bool = None, tts: bool = None,
@@ -523,17 +542,17 @@ class DiscordSession(RequestsSession):
             params['nonce'] = nonce
         if tts is not None:
             params['tts'] = tts
-        return self.post(f'{self.API_url}/channels/{channel_id}/messages', data=params or None, files=files or None)
+        return self.post(f'{self.API_URL}/channels/{channel_id}/messages', data=params or None, files=files or None)
 
     def channel_message_reaction_create(self, channel_id: str, message_id: str, emoji: str) -> RequestsResponse:
-        return self.put(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')
+        return self.put(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')
 
     def channel_message_reaction_my_delete(self, channel_id: str, message_id: str, emoji: int) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')
 
     def channel_message_reaction_delete(self, channel_id: str, message_id: str, user_id: str,
                                         emoji: int) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/{user_id}')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/{user_id}')
 
     def channel_message_reaction_list_users(self, channel_id: str, message_id: str, emoji: int, before: str = None,
                                             after: str = None, limit: int = None) -> RequestsResponse:
@@ -544,11 +563,11 @@ class DiscordSession(RequestsSession):
             params['after'] = after
         if limit is not None:
             params['limit'] = limit
-        return self.get(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}',
+        return self.get(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}',
                         params=params or None)
 
     def channel_message_reaction_delete_all(self, channel_id: str, message_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/messages/{message_id}/reactions')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}/reactions')
 
     def channel_message_edit(self, channel_id: str, message_id: str, content: str = None,
                              embed: dict = None) -> RequestsResponse:
@@ -557,27 +576,27 @@ class DiscordSession(RequestsSession):
             params['content'] = content
         if embed is not None:
             params['embed'] = embed
-        return self.patch(f'{self.API_url}/channels/{channel_id}/messages/{message_id}',
+        return self.patch(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}',
                           json=params or None)
 
     def channel_message_delete(self, channel_id: str, message_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/messages/{message_id}')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}')
 
     def channel_message_bulk_delete(self, channel_id: str, messages_array: list) -> RequestsResponse:
-        return self.post(f'{self.API_url}/channels/{channel_id}/messages/bulk-delete',
+        return self.post(f'{self.API_URL}/channels/{channel_id}/messages/bulk-delete',
                          json={'messages': messages_array})
     # endregion
 
     def channel_permissions_overwrite_edit(self, channel_id: str, overwrite_id: str, allow_permissions: int,
                                            deny_permissions: int, type_of_permissions: str) -> RequestsResponse:
-        return self.put(f'{self.API_url}/channels/{channel_id}/permissions/{overwrite_id}',
+        return self.put(f'{self.API_URL}/channels/{channel_id}/permissions/{overwrite_id}',
                         json={'allow': allow_permissions, 'deny': deny_permissions, 'type': type_of_permissions})
 
     def channel_permissions_overwrite_delete(self, channel_id: str, overwrite_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/permissions/{overwrite_id}')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}/permissions/{overwrite_id}')
 
     def channel_invite_list(self, channel_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/channels/{channel_id}/invites')
+        return self.get(f'{self.API_URL}/channels/{channel_id}/invites')
 
     def channel_invite_create(self, channel_id: str, max_age: int = None, max_uses: int = None,
                               temporary_invite: bool = None, unique: bool = None) -> RequestsResponse:
@@ -590,50 +609,50 @@ class DiscordSession(RequestsSession):
             params['temporary'] = temporary_invite
         if unique is not None:
             params['unique'] = unique
-        return self.post(f'{self.API_url}/channels/{channel_id}/invites', json=params)
+        return self.post(f'{self.API_URL}/channels/{channel_id}/invites', json=params)
 
     def channel_typing_start(self, channel_id: str) -> RequestsResponse:
-        return self.post(f'{self.API_url}/channels/{channel_id}/typing')
+        return self.post(f'{self.API_URL}/channels/{channel_id}/typing')
 
     def channel_pins_get(self, channel_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/channels/{channel_id}/pins')
+        return self.get(f'{self.API_URL}/channels/{channel_id}/pins')
 
     def channel_pins_add(self, channel_id: str, message_id: str) -> RequestsResponse:
-        return self.put(f'{self.API_url}/channels/{channel_id}/pins/{message_id}')
+        return self.put(f'{self.API_URL}/channels/{channel_id}/pins/{message_id}')
 
     def channel_pins_delete(self, channel_id: str, message_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/channels/{channel_id}/pins/{message_id}')
+        return self.delete(f'{self.API_URL}/channels/{channel_id}/pins/{message_id}')
     # endregion
 
     # region Invite REST API calls
 
     def invite_get(self, invite_code: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/invites/{invite_code}')
+        return self.get(f'{self.API_URL}/invites/{invite_code}')
 
     def invite_delete(self, invite_code: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/invites/{invite_code}')
+        return self.delete(f'{self.API_URL}/invites/{invite_code}')
 
     def invite_accept(self, invite_code: str) -> RequestsResponse:
-        return self.post(f'{self.API_url}/invites/{invite_code}')
+        return self.post(f'{self.API_URL}/invites/{invite_code}')
     # endregion
 
     # region Webhook REST API calls
 
     def webhook_create(self, channel_id: str, name: str, avatar: bytes = None) -> RequestsResponse:
-        return self.post(f'{self.API_url}/channels/{channel_id}/webhooks',
+        return self.post(f'{self.API_URL}/channels/{channel_id}/webhooks',
                          json={'name': name, 'avatar': avatar})
 
     def webhook_list_channel(self, channel_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/channels/{channel_id}/webhooks')
+        return self.get(f'{self.API_URL}/channels/{channel_id}/webhooks')
 
     def webhook_list_guild(self, guild_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/guilds/{guild_id}/webhooks')
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/webhooks')
 
     def webhook_get(self, webhook_id: str) -> RequestsResponse:
-        return self.get(f'{self.API_url}/webhooks/{webhook_id}')
+        return self.get(f'{self.API_URL}/webhooks/{webhook_id}')
 
     def webhook_token_get(self, webhook_id: str, webhook_token: int) -> RequestsResponse:
-        return self.get(f'{self.API_url}/webhooks/{webhook_id}/{webhook_token}')
+        return self.get(f'{self.API_URL}/webhooks/{webhook_id}/{webhook_token}')
 
     def webhook_modify(self, webhook_id: str, name: str = None, avatar: bytes = None,
                        channel_id: str = None) -> RequestsResponse:
@@ -644,7 +663,7 @@ class DiscordSession(RequestsSession):
             params['avatar'] = avatar
         if channel_id is not None:
             params['channel_id'] = channel_id
-        return self.patch(f'{self.API_url}/webhooks/{webhook_id}', json=params)
+        return self.patch(f'{self.API_URL}/webhooks/{webhook_id}', json=params)
 
     def webhook_token_modify(self, webhook_id: str, webhook_token: int, name: str = None, avatar: bytes = None,
                              channel_id: str = None) -> RequestsResponse:
@@ -655,13 +674,13 @@ class DiscordSession(RequestsSession):
             params['avatar'] = avatar
         if channel_id is not None:
             params['channel_id'] = channel_id
-        return self.patch(f'{self.API_url}/webhooks/{webhook_id}/{webhook_token}', json=params)
+        return self.patch(f'{self.API_URL}/webhooks/{webhook_id}/{webhook_token}', json=params)
 
     def webhook_delete(self, webhook_id: str) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/webhooks/{webhook_id}')
+        return self.delete(f'{self.API_URL}/webhooks/{webhook_id}')
 
     def webhook_token_delete(self, webhook_id: str, webhook_token: int) -> RequestsResponse:
-        return self.delete(f'{self.API_url}/webhooks/{webhook_id}/{webhook_token}')
+        return self.delete(f'{self.API_URL}/webhooks/{webhook_id}/{webhook_token}')
 
     def webhook_execute(self, webhook_id: str, webhook_token: int, content: str,
                         username: str = None, avatar_url: str = None, tts: bool = None,
@@ -677,7 +696,7 @@ class DiscordSession(RequestsSession):
         if wait_response is not None:
             json_params['wait_response'] = wait_response
 
-        return self.post(f'{self.API_url}/webhooks/{webhook_id}/{webhook_token}', json=json_params)
+        return self.post(f'{self.API_URL}/webhooks/{webhook_id}/{webhook_token}', json=json_params)
 
     # TODO: slack and github webhooks
     # endregion
@@ -685,7 +704,7 @@ class DiscordSession(RequestsSession):
     # region Special calls
 
     def voice_region_list(self) -> RequestsResponse:
-        return self.get(f'{self.API_url}/voice/regions')
+        return self.get(f'{self.API_URL}/voice/regions')
 
     def audit_log_get(self, guild_id: str, filter_user_id: str = None, filter_action_type: int = None,
                       filter_before_entry_id: str = None, limit: int = None) -> RequestsResponse:
@@ -698,10 +717,10 @@ class DiscordSession(RequestsSession):
             params['action_type'] = filter_action_type
         if filter_before_entry_id is not None:
             params['before'] = filter_before_entry_id
-        return self.get(f'{self.API_url}/guilds/{guild_id}/audit-logs', params=params or None)
+        return self.get(f'{self.API_URL}/guilds/{guild_id}/audit-logs', params=params or None)
 
     def gateway_bot_get(self) -> RequestsResponse:
-        return self.get(f'{self.API_url}/gateway/bot')
+        return self.get(f'{self.API_URL}/gateway/bot')
     # endregion
 
 
