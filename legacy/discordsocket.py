@@ -1,8 +1,9 @@
-import websockets
 import asyncio
 import json
-import zlib
 import platform
+import zlib
+
+import websockets
 
 identity_template = {
     'properties':

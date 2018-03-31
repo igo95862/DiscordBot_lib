@@ -1,11 +1,14 @@
-from .discordclient import DiscordClient
-import typing
 import re
+import typing
+
 from . import socket_events_names
+from .discordclient import DiscordClient
+from .util import SingularEvent
 
 __all__ = ['User', 'MyUser', 'DmChannel', 'DmGroupChannel', 'Message', 'Reaction', 'PartialGuild',
-           'Guild', 'GuildTextChannel', 'GuildVoiceChannel', 'GuildCategory',
-           'GuildMember', 'Role']
+           'Guild', 'GuildTextChannel', 'GuildVoiceChannel', 'GuildCategory', 'GuildInvite',
+           'GuildMember', 'Role',
+           'AuditLog', 'AuditKick', 'AuditBanAdd']
 
 
 class DiscordObject:
@@ -78,6 +81,22 @@ class TextChannel(Channel):
         new_message_dict = self.client_bind.channel_message_create(self.snowflake, content)
         return Message(self.client_bind, **new_message_dict)
 
+    def post_multi_message(self, content: str, break_char: str = '\n', threshold: int = 1000):
+        max_length = 2000
+        if len(content) <= max_length:
+            self.post_message(content)
+        else:
+            curr_pos = 0
+            while len(content) - curr_pos > max_length:
+                next_break = content.rfind(break_char, curr_pos, curr_pos + max_length)
+                if next_break != -1 and (curr_pos + next_break) > threshold:
+                    self.post_message(content[curr_pos:next_break])
+                    curr_pos = next_break
+                else:
+                    self.post_message(content[curr_pos:curr_pos + max_length])
+                    curr_pos += max_length
+            self.post_message(content[curr_pos:])
+
     def post_file(self, file_name: str, file_bytes: bytes):
         return Message(self.client_bind, **self.client_bind.channel_message_create_file(self.snowflake,
                                                                                         file_name, file_bytes))
@@ -87,25 +106,18 @@ class TextChannel(Channel):
             yield Message(self.client_bind, **message_d)
 
     def message_dict_iter(self) -> typing.Generator[dict, None, None]:
-        last_message_id = None
-        message_list = self.client_bind.channel_message_list(self.snowflake, limit=100, before=last_message_id)
-        reached_end = False
-        while reached_end is False:
-            if len(message_list) == 0:
-                reached_end = True
-                continue
-
-            for m in message_list:
-                yield m
-            last_message_id = message_list[-1]['id']
-
-            message_list = self.client_bind.channel_message_list(self.snowflake, limit=100, before=last_message_id)
+        for d in self.client_bind.channel_message_iter(self.snowflake):
+            yield d
 
     def get_last_message(self) -> 'Message':
         return Message(self.client_bind, **self.client_bind.channel_message_get(self.snowflake, self.last_message_id))
 
-    def on_message_created(self) -> None:
-        pass
+    async def on_message_created(self) -> typing.AsyncGenerator['Message', None]:
+        async for message_dict in self.client_bind.event_gen_message_create():
+            if message_dict['channel_id'] == self.snowflake:
+                yield Message(self.client_bind, **message_dict)
+
+
 
 
 class DmChannel(TextChannel):
@@ -206,20 +218,49 @@ class Message(DiscordObject):
     def get_mentioned_users(self) -> typing.List['User']:
         return [User(self.client_bind, **self.mentions_dicts[x]) for x in self.mentions_dicts]
 
+    def get_mentioned_users_ids(self) -> typing.List[str]:
+        return [self.mentions_dicts[x]['id'] for x in self.mentions_dicts]
+
     def attachments_iter(self) -> typing.Generator['Attachment', None, None]:
         for d in self.attachments_dicts:
             yield Attachment(self.client_bind, **d)
 
-    def on_emoji_created(self) -> None:
-        pass
+    async def event_user_add_reaction_any(self, user: User) -> 'PartialEmoji':
+        def condition(event_dict: dict, event_name: str):
+            if event_dict['channel_id'] == self.parent_channel_id:
+                if event_dict['message_id'] == self.snowflake:
+                    return event_dict['user_id'] == user.snowflake
+            return False
+
+        event = SingularEvent(condition)
+        self.client_bind.socket_thread.event_queue_add_single(event, 'MESSAGE_REACTION_ADD')
+        return PartialEmoji(**((await event)[0]['emoji']))
+
+    async def on_emoji_created(self) -> typing.AsyncGenerator[typing.Tuple['PartialEmoji', str], None]:
+        async for reaction_dict in self.client_bind.event_gen_message_reaction_add():
+            if reaction_dict['channel_id'] == self.parent_channel_id:
+                if reaction_dict['message_id'] == self.snowflake:
+                    # TODO: hande custom versus unicode emojies correctly
+                    yield PartialEmoji(**reaction_dict['emoji']), reaction_dict['user_id']
+
+
+class Invite:
+
+    def __init__(self, client_bind: DiscordClient, code: str, guild: dict, channel: dict, inviter: dict):
+        self.client_bind = client_bind
+        self.code = code
+        self.partial_guild_dict = guild
+        self.partial_channel_dict = channel
+        self.inviter_user_dict = inviter
 
 
 class PartialEmoji:
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, id: str, name: str):
+    def __init__(self, id: str, name: str, animated: bool):
         self.emoji_id = id
         self.name = name
+        self.animated = animated
 
     def is_unicode_emoji(self) -> bool:
         return self.emoji_id is None
@@ -464,15 +505,7 @@ class Guild(PartialGuild):
             yield self.members_dicts[member_k]
 
     def refresh_member_dicts(self) -> None:
-        downloaded_member_dicts = self.client_bind.guild_members_list(self.snowflake, limit=1000)
-        member_dicts = []
-        member_dicts[:] = downloaded_member_dicts
-        while len(downloaded_member_dicts) == 1000:
-            downloaded_member_dicts = self.client_bind.guild_members_list(
-                self.snowflake, limit=1000,
-                after=downloaded_member_dicts[-1]['user']['id'])
-            member_dicts += downloaded_member_dicts
-        self.members_dicts = {x['user']['id']: x for x in member_dicts}
+        self.members_dicts = {x['user']['id']: x for x in self.client_bind.guild_member_iter(self.snowflake)}
 
     def member_iter(self, download_new: bool = True):
         for member_d in self.member_dicts_iter(download_new):
@@ -481,6 +514,18 @@ class Guild(PartialGuild):
     # __ functions
     def __repr__(self) -> str:
         return f"Guild: {self.guild_name}"
+
+
+class GuildInvite(Invite):
+    def __init__(self, client_bind: DiscordClient, code: str, guild: dict, channel: dict, inviter: dict, uses: int,
+                 max_uses: int, max_age: int, temporary: bool, created_at: str, revoked: bool = None):
+        super().__init__(client_bind, code, guild, channel, inviter)
+        self.uses = uses
+        self.max_users = max_uses
+        self.max_age = max_age
+        self.temporary = temporary
+        self.created_at_iso8601_timestamp = created_at
+        self.revoked = revoked
 
 
 class CustomEmoji(DiscordObject):
@@ -519,13 +564,16 @@ class Role(DiscordObject):
     def has_name(self, other_name: str) -> bool:
         return self.role_name == other_name
 
+    def get_role_name(self) -> str:
+        return self.role_name
+
     def __repr__(self) -> str:
         return f"Role: {self.role_name}"
 
 
 class GuildMember(User):
 
-    def __init__(self, client_bind: DiscordClient, user: dict, roles: typing.Tuple[str],
+    def __init__(self, client_bind: DiscordClient, user: dict, roles: typing.Tuple[str, ...],
                  joined_at: int, deaf: bool, mute: bool, nick: str = None,
                  parent_guild_id: str = None):
         super().__init__(client_bind, **user)
@@ -632,4 +680,60 @@ class GuildCategory(GuildChannel):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw)
 
 
+class AuditLog(DiscordObject):
+    GUILD_UPDATE = 1
+    CHANNEL_CREATE = 10
+    CHANNEL_UPDATE = 11
+    CHANNEL_DELETE = 12
+    CHANNEL_OVERWRITE_CREATE = 13
+    CHANNEL_OVERWRITE_UPDATE = 14
+    CHANNEL_OVERWRITE_DELETE = 15
+    MEMBER_KICK = 20
+    MEMBER_PRUNE = 21
+    MEMBER_BAN_ADD = 22
+    MEMBER_BAN_REMOVE = 23
+    MEMBER_UPDATE = 24
+    MEMBER_ROLE_UPDATE = 25
+    ROLE_CREATE = 30
+    ROLE_UPDATE = 31
+    ROLE_DELETE = 32
+    INVITE_CREATE = 40
+    INVITE_UPDATE = 41
+    INVITE_DELETE = 42
+    WEBHOOK_CREATE = 50
+    WEBHOOK_UPDATE = 51
+    WEBHOOK_DELETE = 52
+    EMOJI_CREATE = 60
+    EMOJI_UPDATE = 61
+    EMOJI_DELETE = 62
+    MESSAGE_DELETE = 72
 
+    # noinspection PyShadowingBuiltins
+    def __init__(self, client_bind: DiscordClient, id: str, user_id: str, target_id: str, action_type: int,
+                 reason: str = None):
+        super().__init__(client_bind, id)
+        self.author_id = user_id
+        self.target_id = target_id
+        self.action_type_id = action_type
+        self.reason = reason
+
+    def is_target(self, user_in_question: 'DiscordObject') -> bool:
+        return user_in_question.snowflake == self.target_id
+
+
+class AuditKick(AuditLog):
+
+    # noinspection PyShadowingBuiltins
+    def __init__(self, client_bind: DiscordClient, id: str, user_id: str, target_id: str, action_type: int,
+                 reason: str = None):
+        assert action_type == self.MEMBER_KICK, 'Attempted to create AuditKick from not a kick event'
+        super().__init__(client_bind, id, user_id, target_id, action_type, reason)
+
+
+class AuditBanAdd(AuditLog):
+
+    # noinspection PyShadowingBuiltins
+    def __init__(self, client_bind: DiscordClient, id: str, user_id: str, target_id: str, action_type: int,
+                 reason: str = None):
+        assert action_type == self.MEMBER_BAN_ADD, 'Attempted to create AuditBanAdd from not a ban add event'
+        super().__init__(client_bind, id, user_id, target_id, action_type, reason)

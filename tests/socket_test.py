@@ -1,6 +1,7 @@
-import unittest
-from discordobjects import discordsocket
 import asyncio
+import unittest
+
+from legacy import discordsocket
 
 
 class SocketInitTest(unittest.TestCase):
