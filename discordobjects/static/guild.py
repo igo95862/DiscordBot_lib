@@ -7,7 +7,7 @@ from .channel_text import TextChannel
 from .guild_member import GuildMember
 from .guild_role import Role
 from .user import User
-from .. import socket_events_names
+from ..constants import SocketEventNames
 from ..discordclient import DiscordClient
 
 
@@ -164,7 +164,7 @@ class Guild(PartialGuild):
     # Members related calls
 
     async def on_new_member_join(self) -> typing.Generator[GuildMember, None, None]:
-        q = self.client_bind.event_queue_add(socket_events_names.GUILD_MEMBER_ADD)
+        q = self.client_bind.event_queue_add(SocketEventNames.GUILD_MEMBER_ADD)
         with q:
             while True:
                 r = await q.get()
@@ -173,7 +173,7 @@ class Guild(PartialGuild):
                     yield GuildMember(self.client_bind, **r, parent_guild_id=new_member_guild_id)
 
     async def on_user_leave(self) -> typing.Generator[User, None, None]:
-        q = self.client_bind.event_queue_add(socket_events_names.GUILD_MEMBER_REMOVE)
+        q = self.client_bind.event_queue_add(SocketEventNames.GUILD_MEMBER_REMOVE)
         with q:
             while True:
                 r = await q.get()

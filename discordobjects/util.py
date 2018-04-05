@@ -2,14 +2,15 @@ import asyncio
 import logging
 import typing
 import weakref
+from enum import Enum
 
 
 class QueueDispenser:
 
-    def __init__(self, slot_names: typing.Tuple[str, ...]):
-        self.queue_count = 0
+    def __init__(self, slot_names: typing.Iterable[typing.Hashable]):
+        self.queue_count: int = 0
         self.task = None
-        self.is_running = False
+        self.is_running: bool = False
         self.slots = {x: [] for x in slot_names}
 
     def queue_add_multiple_slots(self, queue: asyncio.Queue, slot_names: typing.Tuple[str, ...]):
@@ -55,3 +56,18 @@ class SingularEvent:
 
     def __await__(self) -> typing.Coroutine:
         return self.future.__await__()
+
+
+class StrEnum(str, Enum):
+    """
+    Enum where members are also (and must be) strings
+    Based on IntEnum implementation in main library
+    """
+
+    # HACK: code analyser does not understand that enums do not return the values directly but instead return subclass
+    @typing.overload
+    def __iter__(self) -> Enum:
+        ...
+
+    def __iter__(self):
+        return super().__iter__()

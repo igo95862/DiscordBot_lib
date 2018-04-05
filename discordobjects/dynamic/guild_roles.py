@@ -2,7 +2,7 @@ import asyncio
 import logging
 import typing
 
-from .. import socket_events_names
+from ..constants import SocketEventNames
 from ..discordclient import DiscordClient
 from ..static.guild_role import Role
 from ..util import QueueDispenser
@@ -25,15 +25,15 @@ class LiveGuildRoles:
 
     async def auto_update(self) -> None:
         async for event_dict, event_name in self.client_bind.event_gen_multiple(
-                (socket_events_names.GUILD_ROLE_CREATE,
-                 socket_events_names.GUILD_ROLE_UPDATE,
-                 socket_events_names.GUILD_ROLE_DELETE)):
+                (SocketEventNames.GUILD_ROLE_CREATE,
+                 SocketEventNames.GUILD_ROLE_UPDATE,
+                 SocketEventNames.GUILD_ROLE_DELETE)):
             if event_dict['guild_id'] == self.guild_id:
-                if event_name == socket_events_names.GUILD_ROLE_CREATE:
+                if event_name == SocketEventNames.GUILD_ROLE_CREATE:
                     self._add_role(event_dict)
-                elif event_name == socket_events_names.GUILD_ROLE_UPDATE:
+                elif event_name == SocketEventNames.GUILD_ROLE_UPDATE:
                     self._update_role(event_dict)
-                elif event_name == socket_events_names.GUILD_ROLE_DELETE:
+                elif event_name == SocketEventNames.GUILD_ROLE_DELETE:
                     self._delete_role(event_dict)
                 else:
                     logging.warning(f"LiveGuildRoles received unpredicted event of the name {event_name}")

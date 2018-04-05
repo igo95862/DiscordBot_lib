@@ -4,7 +4,7 @@ import typing
 
 from .audit_stack import AuditStackBanAdd, AuditStackKicks
 from .invite_stack import InviteStack
-from .. import socket_events_names
+from ..constants import SocketEventNames
 from ..discordclient import DiscordClient
 from ..static.auditlog import AuditKick, AuditBanAdd
 from ..static.guild_invite import GuildInvite
@@ -31,16 +31,16 @@ class LiveGuildMembers:
 
     async def auto_update(self) -> None:
         async for event_dict, event_name in self.client_bind.event_gen_multiple(
-                (socket_events_names.GUILD_MEMBER_ADD,
-                 socket_events_names.GUILD_MEMBER_REMOVE,
-                 socket_events_names.GUILD_MEMBER_UPDATE)):
+                (SocketEventNames.GUILD_MEMBER_ADD,
+                 SocketEventNames.GUILD_MEMBER_REMOVE,
+                 SocketEventNames.GUILD_MEMBER_UPDATE)):
 
             if event_dict['guild_id'] == self.guild_id:
-                if event_name == socket_events_names.GUILD_MEMBER_UPDATE:
+                if event_name == SocketEventNames.GUILD_MEMBER_UPDATE:
                     self._update_guild_member(event_dict)
-                elif event_name == socket_events_names.GUILD_MEMBER_ADD:
+                elif event_name == SocketEventNames.GUILD_MEMBER_ADD:
                     self._add_guild_member(event_dict)
-                elif event_name == socket_events_names.GUILD_MEMBER_REMOVE:
+                elif event_name == SocketEventNames.GUILD_MEMBER_REMOVE:
                     self._remove_guild_member(event_dict)
                 else:
                     logging.warning(f"LiveGuildMembers received unpredicted event of the name {event_name}")

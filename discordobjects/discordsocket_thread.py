@@ -2,14 +2,9 @@ import asyncio
 import threading
 import typing
 
+from . import discordsocketnew as discordsocket
 from .constants import SocketEventNames
 from .util import QueueDispenser
-
-if __name__ == '__main__':
-    import discordsocketnew as discordsocket
-
-else:
-    from . import discordsocketnew as discordsocket
 
 
 def dummy_plug(payload: dict):
@@ -31,7 +26,7 @@ class DiscordSocketThread:
         self.discord_socket_future = asyncio.run_coroutine_threadsafe(self.discord_socket.init(),
                                                                       self.discord_socket_loop)
 
-        self.event_dispatcher = QueueDispenser(tuple([x.value for x in SocketEventNames]))
+        self.event_dispatcher = QueueDispenser([x for x in SocketEventNames])
         self.event_dispatcher_running = False
 
     def event_queue_add_multiple(self, queue: asyncio.Queue, event_names_tuple: typing.Tuple[str, ...]) -> None:
