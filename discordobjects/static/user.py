@@ -1,11 +1,11 @@
 from .base_object import DiscordObject
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 
 
 class User(DiscordObject):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, username: str, discriminator: str, avatar: str,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, username: str, discriminator: str, avatar: str,
                  bot: bool = None, mfa_enabled: bool = None, verified: bool = None, email: str = None):
         super().__init__(client_bind, id)
         self.username = username

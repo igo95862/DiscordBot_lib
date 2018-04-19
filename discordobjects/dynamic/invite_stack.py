@@ -1,21 +1,20 @@
 import typing
 from collections import deque as deque
 
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 from ..static.guild_invite import GuildInvite
 
 
 class InviteStack:
 
-    def __init__(self, client_bind: DiscordClient, guild_id: str):
+    def __init__(self, client_bind: DiscordClientAsync, guild_id: str):
         self.client_bind = client_bind
         self.guild_id = guild_id
         self.uncollected_queue = deque()
-        invites = self.client_bind.guild_invite_list(self.guild_id)
-        self.invites_dicts = {x['code']: x for x in invites}
+        self.invites_dicts: typing.Dict[str, dict] = []
 
-    def refresh(self) -> None:
-        new_invites = self.client_bind.guild_invite_list(self.guild_id)
+    async def refresh(self) -> None:
+        new_invites: typing.List[dict] = await self.client_bind.guild_invite_list(self.guild_id)
         for invite_dict in new_invites:
             new_invite_code = invite_dict['code']
             if new_invite_code in self.invites_dicts.keys():
@@ -32,13 +31,13 @@ class InviteStack:
 
         self.invites_dicts = {x['code']: x for x in new_invites}
 
-    def checkout(self) -> typing.Union[GuildInvite, None]:
-        self.refresh()
+    async def checkout(self) -> typing.Union[GuildInvite, None]:
+        await self.refresh()
         if len(self.uncollected_queue) != 0:
             invite_code = self.uncollected_queue.popleft()
             return self.get_invite(invite_code)
         else:
             return None
 
-    def get_invite(self, invite_code: str):
+    def get_invite(self, invite_code: str) -> GuildInvite:
         return GuildInvite(self.client_bind, **self.invites_dicts[invite_code])

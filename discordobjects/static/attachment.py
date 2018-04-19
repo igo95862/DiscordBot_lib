@@ -1,11 +1,11 @@
 from .base_object import DiscordObject
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 
 
 class Attachment(DiscordObject):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, filename: str, size: int, url: str, proxy_url: str,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, filename: str, size: int, url: str, proxy_url: str,
                  height: int = None, width: int = None):
         super().__init__(client_bind, id)
         self.filename = filename

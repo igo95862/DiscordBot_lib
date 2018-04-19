@@ -102,7 +102,7 @@ class DiscordClient:
 
     # region Direct Messaging (DM) functions
     def dm_my_list(self) -> dict:
-        response = self.rate_limit(f_partial(self.discord_session.dm_my_list))
+        response = self.rate_limit(f_partial(self.discord_session.me_dm_list))
         response.raise_for_status()
         return response.json()
 

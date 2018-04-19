@@ -1,4 +1,4 @@
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 
 
 class DiscordObject:
@@ -6,7 +6,7 @@ class DiscordObject:
     Basic class for all other discord objects
     """
 
-    def __init__(self, client_bind: DiscordClient = None, snowflake: str = None):
+    def __init__(self, client_bind: DiscordClientAsync = None, snowflake: str = None):
         self.client_bind = client_bind
         self.snowflake = snowflake
 

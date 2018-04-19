@@ -8,13 +8,13 @@ from .guild_member import GuildMember
 from .guild_role import Role
 from .user import User
 from ..constants import SocketEventNames
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 
 
 class PartialGuild(DiscordObject):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, name: str, icon: str, owner: bool,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, name: str, icon: str, owner: bool,
                  permissions: int):
         super().__init__(client_bind, id)
         self.guild_name = name
@@ -24,8 +24,8 @@ class PartialGuild(DiscordObject):
         if not hasattr(self, 'my_permissions') or permissions is not None:
             self.my_permissions = permissions
 
-    def leave(self) -> None:
-        self.client_bind.me_guild_leave(self.snowflake)
+    async def leave_async(self) -> None:
+        await self.client_bind.me_guild_leave(self.snowflake)
 
     def json_representation(self) -> dict:
         return {
@@ -36,8 +36,8 @@ class PartialGuild(DiscordObject):
             'permissions': self.my_permissions
         }
 
-    def extend_to_full_guild(self) -> 'Guild':
-        full_guild_dict = self.client_bind.guild_get(self.snowflake)
+    async def extend_to_full_guild_async(self) -> 'Guild':
+        full_guild_dict = await self.client_bind.guild_get(self.snowflake)
         if 'owner' not in full_guild_dict:
             full_guild_dict['owner'] = self.me_is_owner
         if 'permissions' not in full_guild_dict:
@@ -58,7 +58,7 @@ class Guild(PartialGuild):
 
     # noinspection PyShadowingBuiltins
     def __init__(
-            self, client_bind: DiscordClient, id: str, name: str, icon: str, splash: str,
+            self, client_bind: DiscordClientAsync, id: str, name: str, icon: str, splash: str,
             owner_id: str, region: str, afk_channel_id: str, afk_timeout: int,
             verification_level: int, default_message_notifications: int, explicit_content_filter: int,
             roles: typing.Tuple[dict], emojis: typing.Tuple[dict],
@@ -111,8 +111,8 @@ class Guild(PartialGuild):
     def update_from_dict(self, guild_dict: dict):
         self.__init__(self.client_bind, **guild_dict)
 
-    def refresh(self) -> None:
-        self.update_from_dict(self.client_bind.guild_get(self.snowflake))
+    async def refresh_async(self) -> None:
+        self.update_from_dict(await self.client_bind.guild_get(self.snowflake))
 
     # Roles related calls
 
@@ -142,27 +142,27 @@ class Guild(PartialGuild):
     def get_channel_list(self) -> list:
         return [x for x in self.channels_iter()]
 
-    def text_channels_iter(self, download_new: bool = True) -> typing.Generator:
-        for channel_d in self.channels_dicts_iter(download_new):
+    def text_channels_iter(self) -> typing.Generator['GuildTextChannel', None, None]:
+        for channel_d in self.channels_dicts_iter():
             if channel_d['type'] == Channel.CHANNEL_TYPE_GUILD_TEXT:
                 yield GuildTextChannel(self.client_bind, **channel_d)
 
-    def channels_iter(self, download_new: bool = True) -> typing.Generator[Channel, None, None]:
-        for channel_d in self.channels_dicts_iter(download_new):
+    def channels_iter(self) -> typing.Generator[Channel, None, None]:
+        for channel_d in self.channels_dicts_iter():
             yield GuildChannel(self.client_bind, **channel_d)
 
-    def channels_dicts_iter(self, download_new: bool = True) -> typing.Generator[dict, None, None]:
-        if download_new:
-            self.refresh_channels_dicts()
-
+    def channels_dicts_iter(self) -> typing.Generator[dict, None, None]:
         for channel_k in self.channels_dicts:
             yield self.channels_dicts[channel_k]
 
-    def refresh_channels_dicts(self) -> None:
-        self.channels_dicts = {x['id']: x for x in self.client_bind.guild_channel_list(self.snowflake)}
+    async def refresh_channels_dicts(self) -> typing.Awaitable[None]:
+        self.channels_dicts = {x['id']: x async for x in self.client_bind.guild_channel_list(self.snowflake)}
+        return typing.cast(typing.Awaitable[None], None)
 
     # Members related calls
 
+    # TODO: replace with threading
+    '''
     async def on_new_member_join(self) -> typing.Generator[GuildMember, None, None]:
         q = self.client_bind.event_queue_add(SocketEventNames.GUILD_MEMBER_ADD)
         with q:
@@ -172,31 +172,32 @@ class Guild(PartialGuild):
                 if new_member_guild_id == self.snowflake:
                     yield GuildMember(self.client_bind, **r, parent_guild_id=new_member_guild_id)
 
-    async def on_user_leave(self) -> typing.Generator[User, None, None]:
+    async def on_user_leave(self) -> typing.AsyncGenerator[User, None]:
         q = self.client_bind.event_queue_add(SocketEventNames.GUILD_MEMBER_REMOVE)
         with q:
             while True:
                 r = await q.get()
                 if r['guild_id'] == self.snowflake:
                     yield User(self.client_bind, **r['user'])
+    '''
+    async def get_member_from_user(self, user: User) -> typing.Awaitable[GuildMember]:
+        return typing.cast(typing.Awaitable[GuildMember],
+                           GuildMember(self.client_bind,
+                                       **(await self.client_bind.guild_member_get(self.snowflake, user.snowflake)),
+                                       guild_id=self.snowflake)
+                           )
 
-    def get_member_from_user(self, user: User) -> GuildMember:
-        return GuildMember(self.client_bind, **self.client_bind.guild_member_get(self.snowflake, user.snowflake),
-                           parent_guild_id=self.snowflake)
-
-    def member_dicts_iter(self, download_new: bool = True) -> typing.Generator[dict, None, None]:
-        if download_new:
-            self.refresh_member_dicts()
+    def member_dicts_iter(self) -> typing.Generator[dict, None, None]:
 
         for member_k in self.members_dicts:
             yield self.members_dicts[member_k]
 
-    def refresh_member_dicts(self) -> None:
-        self.members_dicts = {x['user']['id']: x for x in self.client_bind.guild_member_iter(self.snowflake)}
+    async def refresh_member_dicts(self) -> None:
+        self.members_dicts = {x['user']['id']: x async for x in self.client_bind.guild_member_iter(self.snowflake)}
 
-    def member_iter(self, download_new: bool = True):
-        for member_d in self.member_dicts_iter(download_new):
-            yield GuildMember(self.client_bind, **member_d, parent_guild_id=self.snowflake)
+    def member_iter(self):
+        for member_d in self.member_dicts_iter():
+            yield GuildMember(self.client_bind, **member_d, guild_id=self.snowflake)
 
     # __ functions
     def __repr__(self) -> str:
@@ -206,7 +207,7 @@ class Guild(PartialGuild):
 class GuildChannel(Channel):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, guild_id: str, name: str, type: int, position: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, guild_id: str, name: str, type: int, position: int,
                  permission_overwrites: typing.List[dict], parent_id: str, nsfw: bool,
                  last_message_id: str = None, last_pin_timestamp: str = None):
         if self.__class__.__mro__[0] is not GuildTextChannel:
@@ -228,7 +229,7 @@ class GuildChannel(Channel):
 class GuildCategory(GuildChannel):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, guild_id: str, name: str, type: int, position: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, guild_id: str, name: str, type: int, position: int,
                  permission_overwrites: typing.List[dict], parent_id: str, nsfw: bool):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw)
 
@@ -236,7 +237,7 @@ class GuildCategory(GuildChannel):
 class GuildTextChannel(GuildChannel, TextChannel):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, guild_id: str, name: str, type: int, position: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, guild_id: str, name: str, type: int, position: int,
                  permission_overwrites: typing.List[dict], nsfw: bool, topic: str, last_message_id: str,
                  parent_id: str, last_pin_timestamp: str = None):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw,
@@ -247,7 +248,7 @@ class GuildTextChannel(GuildChannel, TextChannel):
 class GuildVoiceChannel(GuildChannel):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, guild_id: str, name: str, type: int, position: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, guild_id: str, name: str, type: int, position: int,
                  permission_overwrites: typing.List[dict], parent_id: str, bitrate: int, user_limit: int,
                  nsfw: bool):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw)

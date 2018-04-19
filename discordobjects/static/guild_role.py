@@ -1,10 +1,11 @@
-from .base_object import DiscordClient, DiscordObject
+from .base_object import DiscordObject
+from ..client import DiscordClientAsync
 
 
 class Role(DiscordObject):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, name: str, color: int, hoist: bool, position: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, name: str, color: int, hoist: bool, position: int,
                  permissions: int, managed: bool, mentionable: bool,
                  parent_guild_id: str = None):
         super().__init__(client_bind, id)

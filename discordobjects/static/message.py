@@ -5,7 +5,7 @@ from .base_object import DiscordObject
 from .emoji import Emoji
 from .reaction import Reaction
 from .user import User
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 from ..util import SingularEvent
 
 
@@ -20,10 +20,11 @@ class Message(DiscordObject):
     MESSAGE_TYPE_GUILD_MEMBER_JOIN = 7
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, channel_id: str, author: dict, content: str, timestamp: str,
-                 edited_timestamp: str, tts: bool, mention_everyone: bool, mentions: typing.List[dict], type: int,
-                 mention_roles: typing.List[dict], attachments: typing.List[dict], embeds: typing.List[dict],
+    def __init__(self, client_bind: DiscordClientAsync, id: str, channel_id: str, author: dict, content: str,
+                 timestamp: str, edited_timestamp: str, tts: bool, mention_everyone: bool, mentions: typing.List[dict],
+                 type: int, mention_roles: typing.List[dict], attachments: typing.List[dict], embeds: typing.List[dict],
                  pinned: bool, reactions: typing.List[dict] = None, nonce: bool = None, webhook_id: str = None,
+                 guild_id: str = None
                  ):
         super().__init__(client_bind, id)
         self.parent_channel_id = channel_id
@@ -42,34 +43,34 @@ class Message(DiscordObject):
         self.reactions = reactions
         self.nonce = nonce
         self.webhook_id = webhook_id
+        self.guild_id = guild_id
 
     def update_from_dict(self, message_dict: dict) -> None:
         self.__init__(self.client_bind, **message_dict)
 
-    def refresh(self) -> None:
-        self.update_from_dict(self.client_bind.channel_message_get(self.parent_channel_id, self.snowflake))
+    async def refresh_async(self) -> None:
+        await self.update_from_dict(self.client_bind.channel_message_get(self.parent_channel_id, self.snowflake))
 
-    def edit(self, new_content: str) -> None:
-        self.update_from_dict(self.client_bind.channel_message_edit(self.parent_channel_id, self.snowflake,
-                                                                    new_content))
+    async def edit_async(self, new_content: str) -> None:
+        self.update_from_dict(
+            await self.client_bind.channel_message_edit(self.parent_channel_id, self.snowflake, new_content))
 
-    def remove(self) -> None:
-        self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
+    async def remove_async(self) -> None:
+        await self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
 
-    def add_unicode_emoji(self, unicode_emoji: str):
-        self.client_bind.channel_message_reaction_create(self.parent_channel_id, self.snowflake, unicode_emoji)
+    async def add_unicode_emoji_async(self, unicode_emoji: str):
+        await self.client_bind.channel_message_reaction_create(self.parent_channel_id, self.snowflake, unicode_emoji)
 
-    def clear_all_emoji(self) -> None:
-        self.client_bind.channel_message_reaction_delete_all(self.parent_channel_id, self.snowflake)
+    async def clear_all_emoji_async(self) -> None:
+        await self.client_bind.channel_message_reaction_delete_all(self.parent_channel_id, self.snowflake)
 
-    def gen_reacted_users_by_unicode_emoji(self, unicode_emoji: str) -> typing.Generator['User', None, None]:
-        for d in self.client_bind.channel_message_reaction_iter_users(
-                self.parent_channel_id, self.snowflake, unicode_emoji,
-        ):
+    async def reacted_users_by_unicode_emoji_async_gen(self, unicode_emoji: str) -> typing.AsyncGenerator['User', None]:
+        async for d in self.client_bind.channel_message_reaction_iter_users(
+                self.parent_channel_id, self.snowflake, unicode_emoji):
             yield User(self.client_bind, **d)
 
-    def get_reactions(self) -> typing.List[Reaction]:
-        self.refresh()
+    async def get_reactions_async(self) -> typing.List[Reaction]:
+        await self.refresh_async()
         if self.reactions is not None:
             return [Reaction(self.client_bind, **x,
                              parent_message_id=self.snowflake, parent_channel_id=self.parent_channel_id)
@@ -96,7 +97,7 @@ class Message(DiscordObject):
         for d in self.attachments_dicts:
             yield Attachment(self.client_bind, **d)
 
-    async def event_user_add_reaction_any(self, user: User) -> Emoji:
+    def event_user_add_reaction_any_async(self, user: User) -> typing.Coroutine[typing.Any, typing.Any, Emoji]:
         def condition(event_dict: dict, event_name: str):
             if event_dict['channel_id'] == self.parent_channel_id:
                 if event_dict['message_id'] == self.snowflake:
@@ -105,9 +106,13 @@ class Message(DiscordObject):
 
         event = SingularEvent(condition)
         self.client_bind.socket_thread.event_queue_add_single(event, 'MESSAGE_REACTION_ADD')
-        return Emoji(**((await event)[0]['emoji']))
 
-    async def on_emoji_created(self) -> typing.AsyncGenerator[typing.Tuple[Emoji, str], None]:
+        async def return_courutine():
+            return Emoji(**((await event)[0]['emoji']))
+
+        return return_courutine()
+
+    async def on_emoji_created_async_gen(self) -> typing.AsyncGenerator[typing.Tuple[Emoji, str], None]:
         async for reaction_dict in self.client_bind.event_gen_message_reaction_add():
             if reaction_dict['channel_id'] == self.parent_channel_id:
                 if reaction_dict['message_id'] == self.snowflake:

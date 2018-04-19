@@ -11,7 +11,7 @@ class QueueDispenser:
         self.queue_count: int = 0
         self.task = None
         self.is_running: bool = False
-        self.slots = {x: [] for x in slot_names}
+        self.slots: typing.Dict[str, list] = {x: [] for x in slot_names}
 
     def queue_add_multiple_slots(self, queue: asyncio.Queue, slot_names: typing.Tuple[str, ...]):
 

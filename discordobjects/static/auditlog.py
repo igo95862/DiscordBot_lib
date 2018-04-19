@@ -1,5 +1,5 @@
 from .base_object import DiscordObject
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 
 
 class AuditLog(DiscordObject):
@@ -31,7 +31,7 @@ class AuditLog(DiscordObject):
     MESSAGE_DELETE = 72
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, user_id: str, target_id: str, action_type: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, user_id: str, target_id: str, action_type: int,
                  reason: str = None):
         super().__init__(client_bind, id)
         self.author_id = user_id
@@ -46,16 +46,16 @@ class AuditLog(DiscordObject):
 class AuditKick(AuditLog):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, user_id: str, target_id: str, action_type: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, user_id: str, target_id: str, action_type: int,
                  reason: str = None):
-        assert action_type == self.MEMBER_KICK, 'Attempted to create AuditKick from not a kick event'
+        assert action_type == self.MEMBER_KICK, 'Attempted to create AuditKick from not a kick_async event'
         super().__init__(client_bind, id, user_id, target_id, action_type, reason)
 
 
 class AuditBanAdd(AuditLog):
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, user_id: str, target_id: str, action_type: int,
+    def __init__(self, client_bind: DiscordClientAsync, id: str, user_id: str, target_id: str, action_type: int,
                  reason: str = None):
         assert action_type == self.MEMBER_BAN_ADD, 'Attempted to create AuditBanAdd from not a ban add event'
         super().__init__(client_bind, id, user_id, target_id, action_type, reason)

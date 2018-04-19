@@ -1,5 +1,5 @@
 from .base_object import DiscordObject
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 
 
 class Channel(DiscordObject):
@@ -10,6 +10,6 @@ class Channel(DiscordObject):
     CHANNEL_TYPE_GUILD_CATEGORY = 4
 
     # noinspection PyShadowingBuiltins
-    def __init__(self, client_bind: DiscordClient, id: str, type: int):
+    def __init__(self, client_bind: DiscordClientAsync, id: str, type: int):
         super().__init__(client_bind, id)
         self.channel_type = type

@@ -1,13 +1,13 @@
 import typing
 
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 from ..static import User
 from ..static.auditlog import AuditLog, AuditKick, AuditBanAdd
 
 
 class AuditStack:
 
-    def __init__(self, client_bind: DiscordClient, guild_id: str, audit_id: int):
+    def __init__(self, client_bind: DiscordClientAsync, guild_id: str, audit_id: int):
         self.client_bind = client_bind
         self.guild_id = guild_id
         self.uncollected_queue = []
@@ -18,9 +18,9 @@ class AuditStack:
         except IndexError:
             self.last_audit_id = None
 
-    def _refresh_gen(self) -> typing.Generator[dict, None, None]:
+    async def _refresh_gen(self) -> typing.Generator[dict, None, None]:
         most_recent_log_id = None
-        for audit_logs_dict, users_dicts, webhook_dicts in self.client_bind.audit_log_iter(
+        async for audit_logs_dict, users_dicts, webhook_dicts in self.client_bind.audit_log_iter(
                 self.guild_id, filter_action_type=self.audit_id):
             if most_recent_log_id is not None:
                 most_recent_log_id = audit_logs_dict[0]['id']
@@ -31,26 +31,26 @@ class AuditStack:
             else:
                 yield audit_logs_dict
 
-    def refresh(self) -> None:
+    async def refresh(self) -> None:
         raise NotImplementedError
 
-    def checkout(self, *args, **kwargs) -> None:
+    async def checkout(self, *args, **kwargs) -> None:
         self.refresh()
         raise NotImplementedError
 
 
 class AuditStackKicks(AuditStack):
 
-    def __init__(self, client_bind: DiscordClient, guild_id: str):
+    def __init__(self, client_bind: DiscordClientAsync, guild_id: str):
         super().__init__(client_bind, guild_id, AuditLog.MEMBER_KICK)
         self.uncollected_queue = typing.cast(typing.List[AuditKick], self.uncollected_queue)
 
-    def refresh(self) -> None:
-        for d in self._refresh_gen():
+    async def refresh(self) -> None:
+        async for d in self._refresh_gen():
             self.uncollected_queue.append(AuditKick(self.client_bind, **d))
 
-    def checkout(self, search_target: User) -> typing.Union[AuditKick, None]:
-        self.refresh()
+    async def checkout(self, search_target: User) -> typing.Union[AuditKick, None]:
+        await self.refresh()
         entry_index = None
         for i, entry in enumerate(self.uncollected_queue):
             if entry.is_target(search_target):
@@ -65,16 +65,16 @@ class AuditStackKicks(AuditStack):
 
 class AuditStackBanAdd(AuditStack):
 
-    def __init__(self, client_bind: DiscordClient, guild_id: str):
+    def __init__(self, client_bind: DiscordClientAsync, guild_id: str):
         super().__init__(client_bind, guild_id, AuditLog.MEMBER_BAN_ADD)
         self.uncollected_queue = typing.cast(typing.List[AuditBanAdd], self.uncollected_queue)
 
-    def refresh(self) -> None:
-        for d in self._refresh_gen():
+    async def refresh(self) -> None:
+        async for d in self._refresh_gen():
             self.uncollected_queue.append(AuditBanAdd(self.client_bind, **d))
 
-    def checkout(self, search_target: User) -> typing.Union[AuditBanAdd, None]:
-        self.refresh()
+    async def checkout(self, search_target: User) -> typing.Union[AuditBanAdd, None]:
+        await self.refresh()
         entry_index = None
         for i, entry in enumerate(self.uncollected_queue):
             if entry.is_target(search_target):

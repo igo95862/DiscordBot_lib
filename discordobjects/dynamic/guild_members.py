@@ -1,35 +1,38 @@
 import asyncio
 import logging
 import typing
+import weakref
 
-from .audit_stack import AuditStackBanAdd, AuditStackKicks
-from .invite_stack import InviteStack
+from ..client import DiscordClientAsync
 from ..constants import SocketEventNames
-from ..discordclient import DiscordClient
-from ..static.auditlog import AuditKick, AuditBanAdd
-from ..static.guild_invite import GuildInvite
-from ..static.guild_member import GuildMember
-from ..static.guild_role import Role
+from ..static import GuildMember
+from ..static import User
 from ..util import QueueDispenser
 
 
 class LiveGuildMembers:
 
-    def __init__(self, client_bind: DiscordClient, guild_id: str,
-                 event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()):
+    def __init__(self, client_bind: DiscordClientAsync, guild_id: str,
+                 event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop(),
+                 start_immediately: bool = True):
         self.client_bind = client_bind
         self.guild_id = guild_id
-        self.member_dicts = {x['user']['id']: x for x in self.client_bind.guild_member_iter(guild_id)}
+        self.members: typing.Dict[str, GuildMember] = None
+        self.event_loop = event_loop
 
-        self.queue_dispenser = QueueDispenser(('ADD', 'UPDATE', 'SELF-LEAVE', 'BAN', 'KICK'))
+        self.await_init: asyncio.Future = asyncio.Future()
 
-        self.audit_kick_stack = AuditStackKicks(self.client_bind, self.guild_id)
-        self.audit_ban_add_stack = AuditStackBanAdd(self.client_bind, self.guild_id)
-        self.invite_stack = InviteStack(self.client_bind, self.guild_id)
+        self.queue_dispenser = QueueDispenser(('ADD', 'UPDATE', 'REMOVE'))
 
-        self.auto_update_task = event_loop.create_task(self.auto_update())
+        if start_immediately:
+            self.auto_update_task = event_loop.create_task(self.auto_update())
 
     async def auto_update(self) -> None:
+        self.members = {x['user']['id']: GuildMember(self.client_bind, **x, guild_id=self.guild_id) async for x in
+                        self.client_bind.guild_member_iter(self.guild_id)}
+
+        self.await_init.set_result(True)
+
         async for event_dict, event_name in self.client_bind.event_gen_multiple(
                 (SocketEventNames.GUILD_MEMBER_ADD,
                  SocketEventNames.GUILD_MEMBER_REMOVE,
@@ -43,55 +46,36 @@ class LiveGuildMembers:
                 elif event_name == SocketEventNames.GUILD_MEMBER_REMOVE:
                     self._remove_guild_member(event_dict)
                 else:
-                    logging.warning(f"LiveGuildMembers received unpredicted event of the name {event_name}")
+                    logging.error(f"LiveGuildMembers received unpredicted event of the name {event_name}")
 
     def _add_guild_member(self, event_dict: dict):
         user_id = event_dict['user']['id']
-        member_dict = self.client_bind.guild_member_get(self.guild_id, user_id)
-        self.member_dicts[user_id] = member_dict
 
-        member = GuildMember(self.client_bind, **member_dict, parent_guild_id=self.guild_id)
-        invite = self.invite_stack.checkout()
+        self.members[user_id] = GuildMember(self.client_bind, **event_dict)
 
-        asyncio.ensure_future(self.queue_dispenser.event_put('ADD', (member, invite)))
+        asyncio.ensure_future(self.queue_dispenser.event_put('ADD', weakref.proxy(self.members[user_id])))
 
     def _remove_guild_member(self, event_dict: dict):
         user_id = event_dict['user']['id']
 
-        member_dict = self.member_dicts.pop(user_id)
-        member = GuildMember(self.client_bind, **member_dict, parent_guild_id=self.guild_id)
+        member = self.members.pop(user_id)
 
-        audit_kick_entry = self.audit_kick_stack.checkout(member)
-        audit_ban_entry = self.audit_ban_add_stack.checkout(member)
-
-        if audit_kick_entry is None and audit_ban_entry is None:
-            asyncio.ensure_future(self.queue_dispenser.event_put('SELF-LEAVE', member))
-        elif audit_ban_entry is not None:
-            asyncio.ensure_future(self.queue_dispenser.event_put('BAN', (member, audit_ban_entry)))
-        elif audit_kick_entry is not None:
-            asyncio.ensure_future(self.queue_dispenser.event_put('KICK', (member, audit_kick_entry)))
-        else:
-            logging.warning('Guild member left, but both got kicked and banned!')
+        asyncio.ensure_future(self.queue_dispenser.event_put('REMOVE', member))
 
     def _update_guild_member(self, event_dict: dict):
         user_id = event_dict['user']['id']
-        self.member_dicts[user_id]['nick'] = event_dict['nick']
-        self.member_dicts[user_id]['user'] = event_dict['user']
-        self.member_dicts[user_id]['roles'] = event_dict['roles']
+        self.members[user_id].nickname = event_dict['nick']
+        self.members[user_id].roles_ids = event_dict['roles']
 
-        member = GuildMember(self.client_bind, **self.member_dicts[user_id], parent_guild_id=self.guild_id)
+        self.members[user_id].username = event_dict['user']['username']
+        self.members[user_id].discriminator = event_dict['user']['discriminator']
+        self.members[user_id].avatar_hash = event_dict['user']['avatar']
 
-        asyncio.ensure_future(self.queue_dispenser.event_put('UPDATE', member))
+        asyncio.ensure_future(self.queue_dispenser.event_put('UPDATE', weakref.proxy(self.members[user_id])))
 
-    async def on_guild_member_joined(self) -> typing.AsyncGenerator[typing.Tuple[GuildMember, GuildInvite], None]:
+    async def on_guild_member_joined(self) -> typing.AsyncGenerator[GuildMember, None]:
         queue = asyncio.Queue()
         self.queue_dispenser.queue_add_single_slot(queue, 'ADD')
-        while True:
-            yield (await queue.get())[0]
-
-    async def on_guild_member_self_leave(self) -> typing.AsyncGenerator[GuildMember, None]:
-        queue = asyncio.Queue()
-        self.queue_dispenser.queue_add_single_slot(queue, 'SELF-LEAVE')
         while True:
             yield (await queue.get())[0]
 
@@ -101,20 +85,35 @@ class LiveGuildMembers:
         while True:
             yield (await queue.get())[0]
 
-    async def on_guild_member_kicked(self) -> typing.AsyncGenerator[typing.Tuple[GuildMember, AuditKick], None]:
+    async def on_guild_member_leave(self) -> typing.AsyncGenerator[GuildMember, None]:
         queue = asyncio.Queue()
-        self.queue_dispenser.queue_add_single_slot(queue, 'KICK')
+        self.queue_dispenser.queue_add_single_slot(queue, 'REMOVE')
         while True:
             yield (await queue.get())[0]
 
-    async def on_guild_member_banned(self) -> typing.AsyncGenerator[typing.Tuple[GuildMember, AuditBanAdd], None]:
-        queue = asyncio.Queue()
-        self.queue_dispenser.queue_add_single_slot(queue, 'BAN')
-        while True:
-            yield (await queue.get())[0]
+    def __await__(self) -> typing.Awaitable[bool]:
+        if self.auto_update_task is None:
+            self.auto_update_task = self.event_loop.create_task(self.auto_update())
+        return self.await_init.__await__()
 
-    def get_member_by_id(self, user_id: str) -> GuildMember:
-        return GuildMember(self.client_bind, **self.member_dicts[user_id], parent_guild_id=self.guild_id)
+    @typing.overload
+    def __getitem__(self, user: User) -> GuildMember:
+        ...
 
-    def get_members_by_role(self, role: Role) -> typing.List[GuildMember]:
-        return [GuildMember(self.client_bind, **x) for x in self.member_dicts.values() if role.snowflake in x['roles']]
+    @typing.overload
+    def __getitem__(self, user_id: str) -> GuildMember:
+        ...
+
+    def __getitem__(self, u) -> GuildMember:
+        if isinstance(u, str):
+            return weakref.proxy(self.members[u])
+        elif isinstance(u, User):
+            return weakref.proxy(self.members[u.snowflake])
+
+    def __iter__(self) -> typing.Generator[GuildMember, None, None]:
+        for gm in self.members:
+            yield weakref.proxy(gm)
+
+
+class GuildMemberLinked(GuildMember):
+    pass

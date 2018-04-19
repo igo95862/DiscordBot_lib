@@ -2,6 +2,8 @@ from enum import IntEnum
 
 from .util import StrEnum
 
+MESSAGE_MAX_LENGTH = 2000
+
 
 class ChannelTypes(IntEnum):
     GUILD_TEXT = 0

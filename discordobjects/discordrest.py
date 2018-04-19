@@ -12,7 +12,7 @@ class DiscordSession(RequestsSession):
 
     API_URL = 'https://discordapp.com/api/v6'
     API_URL_LENGTH = len(API_URL)
-    TIMEOUT_OVERWRITE = 10
+    TIMEOUT_OVERWRITE = 5
 
     # region Timeout overwrites
     def get(self, *args, **kwargs) -> RequestsResponse:
@@ -59,10 +59,10 @@ class DiscordSession(RequestsSession):
     def me_connections_get(self) -> RequestsResponse:
         return self.get(f'{self.API_URL}/users/@me/connections')
 
-    # Direct Messaging (DM) calls
-
-    def dm_my_list(self) -> RequestsResponse:
+    def me_dm_list(self) -> RequestsResponse:
         return self.get(f'{self.API_URL}/users/@me/channels')
+
+    # Direct Messaging (DM) calls
 
     def dm_create(self, recipient_id: str) -> RequestsResponse:
         return self.post(f'{self.API_URL}/users/@me/channels', json={'recipient_id': recipient_id})

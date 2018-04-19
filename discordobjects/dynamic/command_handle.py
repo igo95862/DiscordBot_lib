@@ -3,7 +3,7 @@ import typing
 from collections import OrderedDict
 from shlex import split as shelx_split
 
-from ..discordclient import DiscordClient
+from ..client import DiscordClientAsync
 from ..static import Message
 
 __all__ = ['CommandHandle']
@@ -11,7 +11,7 @@ __all__ = ['CommandHandle']
 
 class CommandHandle:
 
-    def __init__(self, client_bind: DiscordClient,
+    def __init__(self, client_bind: DiscordClientAsync,
                  command_start_pattern: str,
                  test_channel_id: typing.Callable[[str], bool],
                  test_user_id: typing.Callable[[str], bool],

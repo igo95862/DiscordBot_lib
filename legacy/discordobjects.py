@@ -726,7 +726,7 @@ class AuditKick(AuditLog):
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClient, id: str, user_id: str, target_id: str, action_type: int,
                  reason: str = None):
-        assert action_type == self.MEMBER_KICK, 'Attempted to create AuditKick from not a kick event'
+        assert action_type == self.MEMBER_KICK, 'Attempted to create AuditKick from not a kick_async event'
         super().__init__(client_bind, id, user_id, target_id, action_type, reason)
 
 

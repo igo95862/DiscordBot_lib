@@ -96,7 +96,7 @@ class DiscordSocketThread:
     def _main_queue_delete(self) -> None:
         self.event_dispatcher_task.cancel()
         self.discord_socket_loop.call_soon_threadsafe(func_partial(
-            self.discord_socket.event_hooks.remove, self.main_event_hook))
+            self.discord_socket.event_hooks.remove_async, self.main_event_hook))
         self.main_queue = None
 
     async def event_dispatcher(self) -> None:

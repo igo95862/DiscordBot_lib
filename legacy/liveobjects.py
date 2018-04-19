@@ -346,7 +346,7 @@ class AuditKickStack:
         last_audit_entry_dict = self.client_bind.audit_log_get(self.guild_id, filter_action_type=20, limit=1)
         self.last_audit_entry_id = last_audit_entry_dict['audit_log_entries'][0]['id']
 
-    def refresh(self) -> None:
+    def refresh_async(self) -> None:
         new_kick_log = self.client_bind.audit_log_get(self.guild_id, filter_action_type=20, limit=100)
         new_kick_list = new_kick_log['audit_log_entries']
         new_slice = None
@@ -361,7 +361,7 @@ class AuditKickStack:
             self.last_audit_entry_id = new_slice[0]['id']
 
     def checkout(self, user: User) -> dict:
-        self.refresh()
+        self.refresh_async()
         for i in range(len(self.uncollected_queue)):
             if self.uncollected_queue[i]['target_id'] == user.snowflake:
                 return self.uncollected_queue.pop(i)
