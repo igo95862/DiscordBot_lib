@@ -7,27 +7,20 @@ from ..client import DiscordClientAsync
 from ..constants import SocketEventNames
 from ..static import GuildMember
 from ..static import User
-from ..util import QueueDispenser
+from .base_dynamic import BaseDynamic
 
 
-class LiveGuildMembers:
+class LiveGuildMembers(BaseDynamic):
 
     def __init__(self, client_bind: DiscordClientAsync, guild_id: str,
                  event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop(),
                  start_immediately: bool = True):
-        self.client_bind = client_bind
         self.guild_id = guild_id
         self.members: typing.Dict[str, GuildMember] = None
-        self.event_loop = event_loop
 
-        self.await_init: asyncio.Future = asyncio.Future()
+        super().__init__(client_bind, ('ADD', 'UPDATE', 'REMOVE'), event_loop, start_immediately)
 
-        self.queue_dispenser = QueueDispenser(('ADD', 'UPDATE', 'REMOVE'))
-
-        if start_immediately:
-            self.auto_update_task = event_loop.create_task(self.auto_update())
-
-    async def auto_update(self) -> None:
+    async def _auto_update(self) -> None:
         self.members = {x['user']['id']: GuildMember(self.client_bind, **x, guild_id=self.guild_id) async for x in
                         self.client_bind.guild_member_iter(self.guild_id)}
 
@@ -90,11 +83,6 @@ class LiveGuildMembers:
         self.queue_dispenser.queue_add_single_slot(queue, 'REMOVE')
         while True:
             yield (await queue.get())[0]
-
-    def __await__(self) -> typing.Awaitable[bool]:
-        if self.auto_update_task is None:
-            self.auto_update_task = self.event_loop.create_task(self.auto_update())
-        return self.await_init.__await__()
 
     @typing.overload
     def __getitem__(self, user: User) -> GuildMember:

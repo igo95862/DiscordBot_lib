@@ -48,7 +48,7 @@ class Canvas:
         message_buffers: typing.List[str] = []
 
         for line in text_fragments:
-            line_length = len(line)
+            line_length = len(line) + 1  # Account for newline character
             if current_length + line_length > MESSAGE_MAX_LENGTH:
                 # Flush buffer
                 # TODO: corner case, fragment is more then 2000 in length

@@ -6,28 +6,19 @@ import weakref
 from ..constants import SocketEventNames
 from ..client import DiscordClientAsync
 from ..static.guild_role import Role
-from ..util import QueueDispenser
+from .base_dynamic import BaseDynamic
 
 
-class LiveGuildRoles:
+class LiveGuildRoles(BaseDynamic):
 
     def __init__(self, client_bind: DiscordClientAsync, guild_id: str,
                  event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop(),
                  start_immediately: bool = True):
-        self.client_bind = client_bind
         self.guild_id = guild_id
-        self.event_loop = event_loop
-
         self.roles: typing.Dict[str, RoleLinked] = None
+        super().__init__(client_bind, ('CREATE', 'UPDATE', 'DELETE'), event_loop, start_immediately)
 
-        self.await_init: asyncio.Future = asyncio.Future()
-
-        self.queue_dispenser = QueueDispenser(('CREATE', 'UPDATE', 'DELETE'))
-        self.auto_update_task: asyncio.Task = None
-        if start_immediately:
-            self.auto_update_task = self.event_loop.create_task(self.auto_update())
-
-    async def auto_update(self) -> None:
+    async def _auto_update(self) -> None:
         self.roles = {x['id']: RoleLinked(self.client_bind, **x) for x in (
             await self.client_bind.guild_role_list(self.guild_id))}
 
@@ -91,11 +82,6 @@ class LiveGuildRoles:
     def __iter__(self) -> typing.Generator[Role, None, None]:
         for r in self.roles.values():
             yield weakref.proxy(r)
-
-    def __await__(self) -> typing.Awaitable[bool]:
-        if self.auto_update_task is None:
-            self.auto_update_task = self.event_loop.create_task(self.auto_update())
-        return self.await_init.__await__()
 
 
 class RoleLinked(Role):
