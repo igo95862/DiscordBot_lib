@@ -48,23 +48,28 @@ class CommandHandle:
                         yield (args_dict, Message(self.client_bind, **message_dict))
 
 
-def shlex_split(s: str) -> typing.List[str]:
+def parser_shlex_split_and_message(message_dict: dict, client_bind: DiscordClientAsync
+                                   ) -> typing.Tuple[typing.List, Message]:
     try:
-        return shlex.split(s)
+        content_split = shlex.split(message_dict['content'])
     except ValueError:
-        return []
+        content_split = []
+
+    return content_split, Message(client_bind, **message_dict)
 
 
 class CommandCallback:
 
-    def __init__(self, message_dict_agen: typing.AsyncGenerator,
+    def __init__(self, client_bind: DiscordClientAsync,
+                 message_dict_agen: typing.AsyncGenerator,
                  content_test: typing.Callable[[str], bool],
                  channel_id_test: typing.Callable[[str], bool],
                  user_id_test: typing.Callable[[str], bool],
                  callback: typing.Callable[[typing.Any], typing.Coroutine],
-                 parser: typing.Callable[[str], typing.Any] = shlex_split,
+                 parser: typing.Callable[[dict, DiscordClientAsync], typing.Any] = parser_shlex_split_and_message,
                  loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
                  ):
+        self.client_bind = client_bind
         self.message_dict_agen = message_dict_agen
         self.content_test = content_test
         self.channel_id_test = channel_id_test
@@ -84,13 +89,13 @@ class CommandCallback:
             if not self.content_test(message_dict['content']):
                 continue
 
-            parsed_data = self.parser(message_dict)
+            parsed_data = self.parser(message_dict, self.client_bind)
 
             if parsed_data:
-                task: asyncio.Task = self.event_loop.create_task(self.callback(parsed_data))
+                task: asyncio.Task = self.event_loop.create_task(self.callback(*parsed_data))
                 task.add_done_callback(self._call_back_exception)
 
-    async def _call_back_exception(self, done_task: asyncio.Future):
+    def _call_back_exception(self, done_task: asyncio.Future):
         exception = done_task.exception()
-        if done_task.exception is not None:
-            logging.exception(f"Command {repr(self)} raised exception {exception}")
+        if exception is not None:
+            logging.exception(f"Command {repr(self)} raised exception {repr(exception)}")
