@@ -1,5 +1,6 @@
 import asyncio
 import typing
+import logging
 from _functools import partial as f_partial
 from concurrent.futures import ThreadPoolExecutor
 # IDEA: use multiprocess executor in the future?
@@ -72,7 +73,6 @@ class RateLimitSimple:
                 elif response.status_code >= 400:
                     # You made a bad request or something went wrong. Raise exception.
                     response.raise_for_status()
-
                 try:
                     response_data = response.json()
                 except JSONDecodeError:

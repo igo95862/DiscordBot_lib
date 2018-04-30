@@ -8,6 +8,7 @@ from ..constants import SocketEventNames
 from ..static import GuildMember
 from ..static import User
 from .base_dynamic import BaseDynamic
+from ..exceptions import MemberNotInGuild
 
 
 class LiveGuildMembers(BaseDynamic):
@@ -93,10 +94,15 @@ class LiveGuildMembers(BaseDynamic):
         ...
 
     def __getitem__(self, u) -> GuildMember:
-        if isinstance(u, str):
-            return weakref.proxy(self.members[u])
-        elif isinstance(u, User):
-            return weakref.proxy(self.members[u.snowflake])
+        try:
+            if isinstance(u, str):
+                return weakref.proxy(self.members[u])
+            elif isinstance(u, User):
+                return weakref.proxy(self.members[u.snowflake])
+        except KeyError:
+            raise MemberNotInGuild
+
+        raise NotImplementedError(f"__getitem__ with the type {type(u)} is not supported")
 
     def __iter__(self) -> typing.Generator[GuildMember, None, None]:
         for gm in self.members:

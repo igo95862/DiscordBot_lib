@@ -61,7 +61,6 @@ def parser_shlex_split_and_message(message_dict: dict, client_bind: DiscordClien
 class CommandCallback:
 
     def __init__(self, client_bind: DiscordClientAsync,
-                 message_dict_agen: typing.AsyncGenerator,
                  content_test: typing.Callable[[str], bool],
                  channel_id_test: typing.Callable[[str], bool],
                  user_id_test: typing.Callable[[str], bool],
@@ -70,7 +69,6 @@ class CommandCallback:
                  loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
                  ):
         self.client_bind = client_bind
-        self.message_dict_agen = message_dict_agen
         self.content_test = content_test
         self.channel_id_test = channel_id_test
         self.user_id_test = user_id_test
@@ -79,21 +77,23 @@ class CommandCallback:
         self.callback = callback
 
     async def __call__(self):
-        async for message_dict in self.message_dict_agen:
-            if not self.channel_id_test(message_dict['channel_id']):
-                continue
+        async for message_dict in self.client_bind.event_gen_message_create():
 
-            if not self.user_id_test(message_dict['channel_id']):
-                continue
+            async def command():
+                if not self.channel_id_test(message_dict['channel_id']):
+                    return
 
-            if not self.content_test(message_dict['content']):
-                continue
+                if not self.content_test(message_dict['content']):
+                    return
 
-            parsed_data = self.parser(message_dict, self.client_bind)
+                if not self.user_id_test(message_dict['author']['id']):
+                    return
 
-            if parsed_data:
-                task: asyncio.Task = self.event_loop.create_task(self.callback(*parsed_data))
-                task.add_done_callback(self._call_back_exception)
+                parsed_data = self.parser(message_dict, self.client_bind)
+                await self.callback(parsed_data)
+
+            task: asyncio.Task = self.event_loop.create_task(command())
+            task.add_done_callback(self._call_back_exception)
 
     def _call_back_exception(self, done_task: asyncio.Future):
         exception = done_task.exception()

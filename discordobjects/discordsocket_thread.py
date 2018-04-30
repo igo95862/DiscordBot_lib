@@ -1,10 +1,12 @@
 import asyncio
 import threading
 import typing
+import logging
 
 from . import discordsocketnew as discordsocket
 from .constants import SocketEventNames
 from .util import QueueDispenser
+from concurrent.futures import Future as ConcurrentFuture
 
 
 def dummy_plug(payload: dict):
@@ -23,11 +25,25 @@ class DiscordSocketThread:
         self.thread = threading.Thread(target=self.discord_socket_loop.run_forever)
         self.thread.start()
 
-        self.discord_socket_future = asyncio.run_coroutine_threadsafe(self.discord_socket.init(),
-                                                                      self.discord_socket_loop)
+        self.discord_socket_future = asyncio.run_coroutine_threadsafe(
+            self.discord_socket.init(),
+            self.discord_socket_loop)
+
+        self.discord_socket_future.add_done_callback(self._socket_future_complete)
 
         self.event_dispatcher = QueueDispenser([x for x in SocketEventNames])
         self.event_dispatcher_running = False
+
+    def _socket_future_complete(self, finished_future: ConcurrentFuture):
+        exception: BaseException = finished_future.exception()
+        if exception is not None:
+            logging.exception(f"Socket raised exception {repr(exception)} in thread container {repr(self)}")
+        else:
+            logging.warning(f"Socket unexpectedly closed in thread container {repr(self)}")
+
+        self.discord_socket_future = asyncio.run_coroutine_threadsafe(
+            self.discord_socket.init(),
+            self.discord_socket_loop)
 
     def event_queue_add_multiple(self, queue: asyncio.Queue, event_names_tuple: typing.Tuple[str, ...]) -> None:
         if not self.event_dispatcher_running:
