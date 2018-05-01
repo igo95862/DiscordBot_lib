@@ -105,7 +105,7 @@ class LiveGuildMembers(BaseDynamic):
         raise NotImplementedError(f"__getitem__ with the type {type(u)} is not supported")
 
     def __iter__(self) -> typing.Generator[GuildMember, None, None]:
-        for gm in self.members:
+        for gm in self.members.values():
             yield weakref.proxy(gm)
 
 

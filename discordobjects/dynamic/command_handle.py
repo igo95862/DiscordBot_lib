@@ -90,7 +90,7 @@ class CommandCallback:
                     return
 
                 parsed_data = self.parser(message_dict, self.client_bind)
-                await self.callback(parsed_data)
+                await self.callback(*parsed_data)
 
             task: asyncio.Task = self.event_loop.create_task(command())
             task.add_done_callback(self._call_back_exception)

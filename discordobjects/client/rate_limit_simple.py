@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from json import JSONDecodeError
 from time import time
 
+
+from ..exceptions import rest_exception_handler
 from requests import Response
 from requests.exceptions import ConnectTimeout, ReadTimeout, ConnectionError
 
@@ -72,7 +74,7 @@ class RateLimitSimple:
                     continue
                 elif response.status_code >= 400:
                     # You made a bad request or something went wrong. Raise exception.
-                    response.raise_for_status()
+                    rest_exception_handler(response)
                 try:
                     response_data = response.json()
                 except JSONDecodeError:

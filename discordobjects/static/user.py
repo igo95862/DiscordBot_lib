@@ -16,6 +16,9 @@ class User(DiscordObject):
         self.verified = verified
         self.email = email
 
+    def dm_open(self):
+        pass
+
     def get_avatar_url(self) -> str:
         return f"https://cdn.discordapp.com/avatars/{self.snowflake}/{self.avatar_hash}.png"
 

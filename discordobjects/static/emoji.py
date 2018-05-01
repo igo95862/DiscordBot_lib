@@ -14,3 +14,8 @@ class Emoji:
             return self.name
         else:
             return f"<:{self.name}:{self.emoji_id}>"
+
+    def __eq__(self, other):
+        # TODO: coimpare unicode emojies to non unicode
+        if self.is_unicode_emoji() and isinstance(other, str):
+            return self.name == other
