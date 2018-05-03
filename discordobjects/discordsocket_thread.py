@@ -44,6 +44,7 @@ class DiscordSocketThread:
         self.discord_socket_future = asyncio.run_coroutine_threadsafe(
             self.discord_socket.init(),
             self.discord_socket_loop)
+        self.discord_socket_future.add_done_callback(self._socket_future_complete)
 
     def event_queue_add_multiple(self, queue: asyncio.Queue, event_names_tuple: typing.Tuple[str, ...]) -> None:
         if not self.event_dispatcher_running:
