@@ -225,6 +225,11 @@ class GuildChannel(Channel):
     def get_guild(self) -> Guild:
         return Guild(self.client_bind, **self.client_bind.guild_get(self.guild_id))
 
+    async def modify_nsfw(self, nsfw: bool) -> 'GuildChannel':
+        return self.__class__(
+            self.client_bind, **(await self.client_bind.channel_modify_nsfw(self.snowflake, nsfw))
+        )
+
 
 class GuildCategory(GuildChannel):
 

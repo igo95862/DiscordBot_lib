@@ -13,3 +13,11 @@ class Channel(DiscordObject):
     def __init__(self, client_bind: DiscordClientAsync, id: str, type: int):
         super().__init__(client_bind, id)
         self.channel_type = type
+
+    async def modify_name_async(self, new_name: str) -> 'Channel':
+        return self.__class__(
+            self.client_bind, **(await self.client_bind.channel_modify_name(self.snowflake, new_name)))
+
+    async def modify_position_async(self, new_position: int) -> 'Channel':
+        return self.__class__(
+            self.client_bind, **(await self.client_bind.channel_modify_position(self.snowflake, new_position)))

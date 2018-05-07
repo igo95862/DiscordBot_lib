@@ -358,6 +358,30 @@ class DiscordClientAsync:
     async def channel_get(self, channel_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.channel_get, channel_id))
 
+    async def channel_modify(
+            self, channel_id: str, new_name: str = None, new_position: int = None, new_topic: str = None,
+            new_nsfw: bool = None,
+            new_bitrate: int = None, new_user_limit: int = None, new_overwrite_array: list = None,
+            new_parent_id: str = None):
+        params = {}
+        if new_name is not None:
+            params['name'] = new_name
+        if new_position is not None:
+            params['position'] = new_position
+        if new_topic is not None:
+            params['topic'] = new_topic
+        if new_nsfw is not None:
+            params['nsfw'] = new_nsfw
+        if new_bitrate is not None:
+            params['bitrate'] = new_bitrate
+        if new_user_limit is not None:
+            params['userlimit'] = new_user_limit
+        if new_overwrite_array is not None:
+            params['permission_overwrites'] = new_overwrite_array
+        if new_parent_id is not None:
+            params['parent_id'] = new_parent_id
+        return await self.rate_limit(f_partial(self.rest_session.channel_modify, channel_id, params))
+
     async def channel_modify_name(self, channel_id: str, name: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.channel_modify_name, channel_id, name))
 
@@ -366,6 +390,9 @@ class DiscordClientAsync:
 
     async def channel_modify_topic(self, channel_id: str, topic: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.channel_modify_topic, channel_id, topic))
+
+    async def channel_modify_nsfw(self, channel_id: str, nsfw: bool) -> dict:
+        return await self.rate_limit(f_partial(self.rest_session.channel_modify_nsfw, channel_id, nsfw))
 
     async def channel_modify_bitrate(self, channel_id: str, bitrate: int) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.channel_modify_bitrate, channel_id, bitrate))

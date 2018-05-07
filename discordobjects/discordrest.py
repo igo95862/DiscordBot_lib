@@ -461,7 +461,8 @@ class DiscordSession(RequestsSession):
     # Channel modify sub-functions
     def channel_modify_multiple(
             self, channel_id: str, new_name: str = None, new_position: int = None, new_topic: str = None,
-            new_bitrate: int = None, new_user_limit: int = None, new_overwrite_array: list = None,
+            new_nsfw: bool = None, new_bitrate: int = None,
+            new_user_limit: int = None, new_overwrite_array: list = None,
             new_parent_id: str = None):
         params = {}
         if new_name is not None:
@@ -470,6 +471,8 @@ class DiscordSession(RequestsSession):
             params['position'] = new_position
         if new_topic is not None:
             params['topic'] = new_topic
+        if new_nsfw is not None:
+            params['nsfw'] = new_nsfw
         if new_bitrate is not None:
             params['bitrate'] = new_bitrate
         if new_user_limit is not None:
@@ -488,6 +491,9 @@ class DiscordSession(RequestsSession):
 
     def channel_modify_topic(self, channel_id: str, topic: str) -> RequestsResponse:
         return self.channel_modify(channel_id, {'topic': topic})
+
+    def channel_modify_nsfw(self, channel_id: str, nsfw: bool) -> RequestsResponse:
+        return self.channel_modify(channel_id, {'nsfw': nsfw})
 
     def channel_modify_bitrate(self, channel_id: str, bitrate: int) -> RequestsResponse:
         return self.channel_modify(channel_id, {'bitrate': bitrate})
