@@ -69,40 +69,20 @@ class DiscordClientAsync:
     async def guild_get(self, guild_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.guild_get, guild_id))
 
-    async def guild_modify_name(self, guild_id: str, new_name: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_name, guild_id, new_name))
-
-    async def guild_modify_region(self, guild_id: str, new_region: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_region, guild_id, new_region))
-
-    async def guild_modify_verification_level(self, guild_id: str, new_level: int) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_verification_level, guild_id, new_level))
-
-    async def guild_modify_default_notification_level(self, guild_id: str, new_level: int) -> bool:
+    async def guild_modify(
+            self, guild_id: str, new_name: str = None, new_voice_region_id: str = None,
+            new_verification_level: int = None, new_default_level_notifications: int = None,
+            new_explicit_content_filter: int = None, new_afk_channel_id: str = None,
+            new_afk_timeout: int = None, new_icon: str = None, new_owner: str = None,
+            new_splash: str = None, new_system_channel_id: str = None) -> dict:
         return await self.rate_limit(f_partial(
-            self.rest_session.guild_modify_default_notification_level,
-            guild_id, new_level))
-
-    async def guild_modify_afk_channel_id(self, guild_id: str, new_afk_channel_id: str) -> dict:
-        return await self.rate_limit(f_partial(
-            self.rest_session.guild_modify_afk_channel_id,
-            guild_id, new_afk_channel_id))
-
-    async def guild_modify_afk_timeout(self, guild_id: str, new_afk_timeout: int) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_afk_timeout, guild_id, new_afk_timeout))
-
-    async def guild_modify_icon(self, guild_id: str, new_icon: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_icon, guild_id, new_icon))
-
-    async def guild_modify_owner_id(self, guild_id: str, new_owner_id: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_owner_id, guild_id, new_owner_id))
-
-    async def guild_modify_splash(self, guild_id: str, new_splash: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_splash, guild_id, new_splash))
-
-    async def guild_modify_system_channel_id(self, guild_id: str, new_system_channel_id: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_modify_system_channel_id,
-                                               guild_id, new_system_channel_id))
+            self.rest_session.guild_modify,
+            guild_id, new_name, new_voice_region_id,
+            new_verification_level, new_default_level_notifications,
+            new_explicit_content_filter, new_afk_channel_id,
+            new_afk_timeout, new_icon, new_owner,
+            new_splash, new_system_channel_id
+            ))
 
     async def guild_delete(self, guild_id: str) -> bool:
         return await self.rate_limit(f_partial(self.rest_session.guild_delete, guild_id))
@@ -131,7 +111,9 @@ class DiscordClientAsync:
             self.rest_session.guild_channel_create_category,
             guild_id, name, permission_overwrites, nsfw))
 
-    async def guild_channels_position_modify(self, guild_id: str, list_of_channels: list) -> bool:
+    async def guild_channels_position_modify(
+            self, guild_id: str,
+            list_of_channels: typing.List[typing.Dict[str, int]]) -> bool:
         return await self.rate_limit(f_partial(
             self.rest_session.guild_channels_position_modify,
             guild_id, list_of_channels))
@@ -162,40 +144,15 @@ class DiscordClientAsync:
             self.rest_session.guild_member_add,
             guild_id, user_id, access_token, nick, roles, mute, deaf))
 
-    async def guild_member_modify_nick(self, guild_id: str, user_id: str, nick_to_set: str) -> bool:
+    async def guild_member_modify(
+            self, guild_id: str, user_id: str, new_nick: str = None, new_roles: list = None,
+            new_mute: bool = None, new_deaf: bool = None, new_channel_id: str = None) -> dict:
         return await self.rate_limit(
             f_partial(
-                self.rest_session.guild_member_modify_nick,
-                guild_id, user_id, nick_to_set),
-            ('Guild Member Modify', guild_id))
-
-    async def guild_member_modify_roles(self, guild_id: str, user_id: str, roles: list) -> bool:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_member_modify_roles,
-                guild_id, user_id, roles),
-            ('Guild Member Modify', guild_id))
-
-    async def guild_member_modify_mute(self, guild_id: str, user_id: str, mute_bool: bool) -> bool:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_member_modify_mute,
-                guild_id, user_id, mute_bool)
-            ('Guild Member Modify', guild_id))
-
-    async def guild_member_modify_deaf(self, guild_id: str, user_id: str, deaf_bool: bool) -> bool:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_member_modify_deaf,
-                guild_id, user_id, deaf_bool),
-            ('Guild Member Modify', guild_id))
-
-    async def guild_member_modify_move(self, guild_id: str, user_id: str, channel_move_to: int) -> bool:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_member_modify_move,
-                guild_id, user_id, channel_move_to),
-            ('Guild Member Modify', guild_id))
+                self.rest_session.guild_member_modify,
+                guild_id, user_id, new_nick, new_roles,
+                new_mute, new_deaf, new_channel_id,
+            ))
 
     async def guild_member_me_nick_set(self, guild_id: str, nick_to_set: str) -> dict:
         return await self.rate_limit(
@@ -248,41 +205,21 @@ class DiscordClientAsync:
                 self.rest_session.guild_role_create,
                 guild_id, permissions, color, hoist, mentionable))
 
-    async def guild_role_position_modify(self, guild_id: str, list_of_role_positions: list) -> dict:
+    async def guild_role_position_modify(self, guild_id: str,
+                                         list_of_role_positions: typing.List[typing.Dict[str, int]]) -> dict:
         return await self.rate_limit(
             f_partial(
                 self.rest_session.guild_role_position_modify,
                 guild_id, list_of_role_positions))
 
-    async def _guild_role_modify(self, guild_id: str, role_id: str, params: dict) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_role_modify, guild_id, role_id, params))
-
-    async def guild_role_modify_name(self, guild_id: str, role_id: str, name: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.guild_role_modify_name, guild_id, role_id, name))
-
-    async def guild_role_modify_permissions(self, guild_id: str, role_id: str, permissions: int) -> dict:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_role_modify_permissions,
-                guild_id, role_id, permissions))
-
-    async def guild_role_modify_color(self, guild_id: str, role_id: str, color: int) -> dict:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_role_modify_color,
-                guild_id, role_id, color))
-
-    async def guild_role_modify_hoist(self, guild_id: str, role_id: str, hoist: bool) -> dict:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_role_modify_hoist,
-                guild_id, role_id, hoist))
-
-    async def guild_role_modify_mentionable(self, guild_id: str, role_id: str, mentionable: bool) -> dict:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.guild_role_modify_mentionable,
-                guild_id, role_id, mentionable))
+    async def guild_role_modify(
+            self,
+            guild_id: str, role_id: str, new_name: str = None, new_permissions: int = None, new_color: int = None,
+            new_hoist: bool = None, new_mentionable: bool = None) -> dict:
+        return await self.rate_limit(f_partial(
+            self.rest_session.guild_role_modify,
+            guild_id, role_id, new_name, new_permissions, new_color,
+            new_hoist, new_mentionable))
 
     async def guild_role_delete(self, guild_id: str, role_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.guild_role_delete, guild_id, role_id))
@@ -381,33 +318,6 @@ class DiscordClientAsync:
         if new_parent_id is not None:
             params['parent_id'] = new_parent_id
         return await self.rate_limit(f_partial(self.rest_session.channel_modify, channel_id, params))
-
-    async def channel_modify_name(self, channel_id: str, name: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.channel_modify_name, channel_id, name))
-
-    async def channel_modify_position(self, channel_id: str, position: int) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.channel_modify_position, channel_id, position))
-
-    async def channel_modify_topic(self, channel_id: str, topic: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.channel_modify_topic, channel_id, topic))
-
-    async def channel_modify_nsfw(self, channel_id: str, nsfw: bool) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.channel_modify_nsfw, channel_id, nsfw))
-
-    async def channel_modify_bitrate(self, channel_id: str, bitrate: int) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.channel_modify_bitrate, channel_id, bitrate))
-
-    async def channel_modify_user_limit(self, channel_id: str, userlimit: int) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.channel_modify_user_limit, channel_id, userlimit))
-
-    async def channel_modify_permission_overwrites(self, channel_id: str, overwrite_array: list) -> dict:
-        return await self.rate_limit(
-            f_partial(
-                self.rest_session.channel_modify_permission_overwrites,
-                channel_id, overwrite_array))
-
-    async def channel_modify_parent_id(self, channel_id: str, parent_id: str) -> dict:
-        return await self.rate_limit(f_partial(self.rest_session.channel_modify_parent_id, channel_id, parent_id))
 
     async def channel_delete(self, channel_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.channel_delete, channel_id))
