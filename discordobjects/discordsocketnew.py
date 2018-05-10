@@ -49,6 +49,12 @@ class DiscordSocket:
 
     async def init(self) -> None:
         heart_beat = None
+
+        def cancel_heartbeat():
+            if heart_beat is not None:
+                if not heart_beat.cancelled():
+                    heart_beat.cancel()
+
         while self.running:
             try:
                 async with websockets.connect(self.socket_url, timeout=1, loop=self.event_loop) as discord_socket:
@@ -83,14 +89,16 @@ class DiscordSocket:
                 if isinstance(heart_beat, asyncio.Task):
                     if not heart_beat.cancelled():
                         heart_beat.cancel()
+            except asyncio.CancelledError:
+                cancel_heartbeat()
+                return
             except Exception as e:
                 logging.exception(e)
+                cancel_heartbeat()
                 raise
             else:
                 self.running = False
-                if isinstance(heart_beat, asyncio.Task):
-                    if not heart_beat.cancelled():
-                        heart_beat.cancel()
+                cancel_heartbeat()
 
     async def _heartbeat_cycle(self, websocket) -> None:
         while self.running:

@@ -1,12 +1,12 @@
 import asyncio
-import threading
-import typing
 import logging
+import typing
+from concurrent.futures import Future as ConcurrentFuture, wait as concurrent_wait, ThreadPoolExecutor
+from weakref import finalize
 
 from . import discordsocketnew as discordsocket
 from .constants import SocketEventNames
 from .util import QueueDispenser
-from concurrent.futures import Future as ConcurrentFuture
 
 
 def dummy_plug(payload: dict):
@@ -18,12 +18,12 @@ class DiscordSocketThread:
     def __init__(self, token: str):
         self.local_event_loop = asyncio.get_event_loop()
 
-        self.discord_socket_loop = asyncio.new_event_loop()
+        self.discord_socket_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         self.discord_socket = discordsocket.DiscordSocket(token, event_loop=self.discord_socket_loop,
                                                           event_handler=dummy_plug)
 
-        self.thread = threading.Thread(target=self.discord_socket_loop.run_forever)
-        self.thread.start()
+        self.thread = ThreadPoolExecutor(max_workers=1)
+        self.thread_future = self.thread.submit(self.discord_socket_loop.run_forever)
 
         self.discord_socket_future = asyncio.run_coroutine_threadsafe(
             self.discord_socket.init(),
@@ -34,7 +34,13 @@ class DiscordSocketThread:
         self.event_dispatcher = QueueDispenser([x for x in SocketEventNames])
         self.event_dispatcher_running = False
 
+        finalize(self, self.stop)
+
     def _socket_future_complete(self, finished_future: ConcurrentFuture):
+        if self.discord_socket_future.cancelled():
+            logging.info(f"Socket was canceled")
+            return
+
         exception: BaseException = finished_future.exception()
         if exception is not None:
             logging.exception(f"Socket raised exception {repr(exception)} in thread container {repr(self)}")
@@ -74,3 +80,14 @@ class DiscordSocketThread:
         remove_hook = asyncio.run_coroutine_threadsafe(self.discord_socket.set_event_handler(dummy_plug),
                                                        loop=self.discord_socket_loop)
         remove_hook.result(timeout=10)
+
+    def stop(self):
+        self.discord_socket_future.cancel()
+        concurrent_wait((self.discord_socket_future,))
+
+        def stop_loop():
+            self.discord_socket_loop.stop()
+
+        self.discord_socket_loop.call_soon_threadsafe(stop_loop)
+        concurrent_wait((self.thread_future,))
+        self.thread.shutdown()
