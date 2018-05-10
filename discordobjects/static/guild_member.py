@@ -34,7 +34,7 @@ class GuildMember(User):
                                                          [x.snowflake for x in roles])
 
     async def set_roles_by_ids_async(self, roles_ids: typing.List[str]):
-        await self.client_bind.guild_member_modify_roles(self.parent_guild_id, self.snowflake, roles_ids)
+        await self.client_bind.guild_member_modify(self.parent_guild_id, self.snowflake, new_roles=roles_ids)
 
     def roles_ids_iter(self) -> typing.Generator[str, None, None]:
         for i in self.roles_ids:
