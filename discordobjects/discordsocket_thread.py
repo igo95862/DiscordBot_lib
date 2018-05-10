@@ -34,6 +34,8 @@ class DiscordSocketThread:
         self.event_dispatcher = QueueDispenser([x for x in SocketEventNames])
         self.event_dispatcher_running = False
 
+        self.failure_count = 0
+
         finalize(self, self.stop)
 
     def _socket_future_complete(self, finished_future: ConcurrentFuture):
@@ -46,6 +48,11 @@ class DiscordSocketThread:
             logging.exception(f"Socket raised exception {repr(exception)} in thread container {repr(self)}")
         else:
             logging.warning(f"Socket unexpectedly closed in thread container {repr(self)}")
+
+        self.failure_count += 1
+        if self.failure_count == 3:
+            logging.critical(f"Failed to reinitialize socket {self.failure_count}. Shutting down.")
+            return
 
         self.discord_socket_future = asyncio.run_coroutine_threadsafe(
             self.discord_socket.init(),
