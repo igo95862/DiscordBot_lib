@@ -30,8 +30,8 @@ class GuildMember(User):
         await self.client_bind.guild_member_role_remove(self.parent_guild_id, self.snowflake, role.snowflake)
 
     async def set_roles_async(self, roles: typing.List[Role]):
-        await self.client_bind.guild_member_modify_roles(self.parent_guild_id, self.snowflake,
-                                                         [x.snowflake for x in roles])
+        await self.client_bind.guild_member_modify(self.parent_guild_id, self.snowflake,
+                                                   new_roles=[x.snowflake for x in roles])
 
     async def set_roles_by_ids_async(self, roles_ids: typing.List[str]):
         await self.client_bind.guild_member_modify(self.parent_guild_id, self.snowflake, new_roles=roles_ids)
