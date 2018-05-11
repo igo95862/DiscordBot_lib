@@ -23,6 +23,9 @@ class GuildMember(User):
     async def kick_async(self) -> None:
         await self.client_bind.guild_member_remove(self.parent_guild_id, self.snowflake)
 
+    async def ban_async(self, delete_messages_days: int = None):
+        await self.client_bind.guild_ban_create(self.parent_guild_id, self.snowflake, delete_messages_days)
+
     async def add_role_async(self, role: Role):
         await self.client_bind.guild_member_role_add(self.parent_guild_id, self.snowflake, role.snowflake)
 
