@@ -24,7 +24,7 @@ class Message(DiscordObject):
                  timestamp: str, edited_timestamp: str, tts: bool, mention_everyone: bool, mentions: typing.List[dict],
                  type: int, mention_roles: typing.List[dict], attachments: typing.List[dict], embeds: typing.List[dict],
                  pinned: bool, reactions: typing.List[dict] = None, nonce: bool = None, webhook_id: str = None,
-                 guild_id: str = None
+                 guild_id: str = None, member: dict = None,
                  ):
         super().__init__(client_bind, id)
         self.parent_channel_id = channel_id
@@ -44,6 +44,7 @@ class Message(DiscordObject):
         self.nonce = nonce
         self.webhook_id = webhook_id
         self.guild_id = guild_id
+        self.member_dict = member
 
     def update_from_dict(self, message_dict: dict) -> None:
         self.__init__(self.client_bind, **message_dict)
