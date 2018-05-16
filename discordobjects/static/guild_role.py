@@ -7,7 +7,8 @@ class Role(DiscordObject):
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClientAsync, id: str, name: str, color: int, hoist: bool, position: int,
                  permissions: int, managed: bool, mentionable: bool,
-                 parent_guild_id: str = None):
+                 parent_guild_id: str = None,
+                 **kwargs):
         super().__init__(client_bind, id)
         self.role_name = name
         self.role_color = color
@@ -17,6 +18,8 @@ class Role(DiscordObject):
         self.managed = managed
         self.mentionable = mentionable
         self.parent_guild_id = parent_guild_id
+
+        self.kwargs_handler(**kwargs)
 
     def has_name(self, other_name: str) -> bool:
         return self.role_name == other_name

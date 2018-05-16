@@ -7,7 +7,8 @@ class User(DiscordObject):
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClientAsync, id: str, username: str, discriminator: str, avatar: str,
                  bot: bool = None, mfa_enabled: bool = None, verified: bool = None, email: str = None,
-                 flags: int = None):
+                 flags: int = None,
+                 **kwargs):
         super().__init__(client_bind, id)
         self.username = username
         self.discriminator = discriminator
@@ -17,6 +18,8 @@ class User(DiscordObject):
         self.verified = verified
         self.email = email
         self.flags = flags
+
+        self.kwargs_handler(**kwargs)
 
     def dm_open(self):
         pass

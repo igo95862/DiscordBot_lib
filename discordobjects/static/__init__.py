@@ -17,7 +17,6 @@ from .user import User
 
 
 async def dm_open(self) -> DmChannel:
-    from .channel_dm import DmChannel
     return DmChannel(self.client_bind, **(await self.client_bind.dm_create(self.snowflake)))
 
 User.dm_open = dm_open

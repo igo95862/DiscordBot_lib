@@ -25,7 +25,7 @@ class Message(DiscordObject):
                  type: int, mention_roles: typing.List[dict], attachments: typing.List[dict], embeds: typing.List[dict],
                  pinned: bool, reactions: typing.List[dict] = None, nonce: bool = None, webhook_id: str = None,
                  guild_id: str = None, member: dict = None,
-                 ):
+                 **kwargs):
         super().__init__(client_bind, id)
         self.parent_channel_id = channel_id
         self.author_dict = author
@@ -45,6 +45,8 @@ class Message(DiscordObject):
         self.webhook_id = webhook_id
         self.guild_id = guild_id
         self.member_dict = member
+
+        self.kwargs_handler(**kwargs)
 
     def update_from_dict(self, message_dict: dict) -> None:
         self.__init__(self.client_bind, **message_dict)

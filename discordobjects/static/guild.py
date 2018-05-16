@@ -68,7 +68,8 @@ class Guild(PartialGuild):
             owner: bool = False, permissions: int = None,
             joined_at: str = None, large: bool = None, unavailable: bool = None, member_count: int = None,
             voice_states: dict = None, members: typing.Tuple[dict] = None, channels: typing.Tuple[dict] = None,
-            presences: typing.Tuple[dict] = None):
+            presences: typing.Tuple[dict] = None,
+            **kwargs):
         super().__init__(client_bind, id, name, icon, owner, permissions)
 
         self.splash_hash = splash
@@ -107,6 +108,8 @@ class Guild(PartialGuild):
             else:
                 self.channels_dicts = None
             self.presences_dicts = presences
+
+        self.kwargs_handler(**kwargs)
 
     def update_from_dict(self, guild_dict: dict):
         self.__init__(self.client_bind, **guild_dict)
@@ -235,8 +238,11 @@ class GuildCategory(GuildChannel):
 
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClientAsync, id: str, guild_id: str, name: str, type: int, position: int,
-                 permission_overwrites: typing.List[dict], parent_id: str, nsfw: bool):
+                 permission_overwrites: typing.List[dict], parent_id: str, nsfw: bool,
+                 **kwargs):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw)
+
+        self.kwargs_handler(**kwargs)
 
 
 class GuildTextChannel(GuildChannel, TextChannel):
@@ -244,10 +250,13 @@ class GuildTextChannel(GuildChannel, TextChannel):
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClientAsync, id: str, guild_id: str, name: str, type: int, position: int,
                  permission_overwrites: typing.List[dict], nsfw: bool, topic: str, last_message_id: str,
-                 parent_id: str, last_pin_timestamp: str = None):
+                 parent_id: str, last_pin_timestamp: str = None,
+                 **kwargs):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw,
                          last_message_id, last_pin_timestamp)
         self.topic = topic
+
+        self.kwargs_handler(**kwargs)
 
 
 class GuildVoiceChannel(GuildChannel):
@@ -255,7 +264,9 @@ class GuildVoiceChannel(GuildChannel):
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClientAsync, id: str, guild_id: str, name: str, type: int, position: int,
                  permission_overwrites: typing.List[dict], parent_id: str, bitrate: int, user_limit: int,
-                 nsfw: bool):
+                 nsfw: bool, **kwargs):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw)
         self.bitrate = bitrate
         self.user_limit = user_limit
+
+        self.kwargs_handler(**kwargs)
