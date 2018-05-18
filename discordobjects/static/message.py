@@ -64,6 +64,15 @@ class Message(DiscordObject):
     async def add_unicode_emoji_async(self, unicode_emoji: str):
         await self.client_bind.channel_message_reaction_create(self.parent_channel_id, self.snowflake, unicode_emoji)
 
+    async def clear_emoji_by_user(self, emoji: Emoji, user: typing.Union[User, str]):
+        if isinstance(user, User):
+            user_id = user.snowflake
+        else:
+            user_id = user
+
+        await self.client_bind.channel_message_reaction_delete(
+            self.parent_channel_id, self.snowflake, user_id, emoji.util_id())
+
     async def clear_all_emoji_async(self) -> None:
         await self.client_bind.channel_message_reaction_delete_all(self.parent_channel_id, self.snowflake)
 

@@ -461,7 +461,7 @@ class DiscordSession(RequestsSession):
         return self.delete(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/@me')
 
     def channel_message_reaction_delete(self, channel_id: str, message_id: str, user_id: str,
-                                        emoji: int) -> RequestsResponse:
+                                        emoji: str) -> RequestsResponse:
         return self.delete(f'{self.API_URL}/channels/{channel_id}/messages/{message_id}/reactions/{emoji}/{user_id}')
 
     def channel_message_reaction_list_users(self, channel_id: str, message_id: str, emoji: int, before: str = None,

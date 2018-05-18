@@ -9,6 +9,12 @@ class Emoji:
     def is_unicode_emoji(self) -> bool:
         return self.emoji_id is None
 
+    def util_id(self):
+        if self.is_unicode_emoji():
+            return self.name
+        else:
+            return f"{self.name}:{self.emoji_id}"
+
     def __str__(self):
         if self.is_unicode_emoji():
             return self.name

@@ -369,7 +369,7 @@ class DiscordClientAsync:
                 channel_id, message_id, emoji))
 
     async def channel_message_reaction_delete(self, channel_id: str, message_id: str, user_id: str,
-                                              emoji: int) -> bool:
+                                              emoji: str) -> bool:
         return await self.rate_limit(
             f_partial(
                 self.rest_session.channel_message_reaction_delete,
