@@ -92,21 +92,22 @@ class DiscordClientAsync:
         return await self.rate_limit(f_partial(self.rest_session.guild_channel_list, guild_id))
 
     async def guild_channel_create_text(
-            self, guild_id: str, name: str, permission_overwrites: dict = None,
+            self, guild_id: str, name: str, permission_overwrites: typing.List[dict] = None,
             parent_id: str = None, nsfw: bool = None) -> dict:
         return await self.rate_limit(f_partial(
             self.rest_session.guild_channel_create_text,
             guild_id, name, permission_overwrites, parent_id, nsfw))
 
     async def guild_channel_create_voice(
-            self, guild_id: str, name: str, permission_overwrites: dict = None,
+            self, guild_id: str, name: str, permission_overwrites: typing.List[dict] = None,
             parent_id: str = None, nsfw: bool = None, bitrate: int = None, user_limit: int = None) -> dict:
         return await self.rate_limit(f_partial(
             self.rest_session.guild_channel_create_voice,
             guild_id, name, permission_overwrites, parent_id, nsfw, bitrate, user_limit))
 
-    async def guild_channel_create_category(self, guild_id: str, name: str, permission_overwrites: dict = None,
-                                            nsfw: bool = None) -> dict:
+    async def guild_channel_create_category(
+            self, guild_id: str, name: str, permission_overwrites: typing.List[dict] = None,
+            nsfw: bool = None) -> dict:
         return await self.rate_limit(f_partial(
             self.rest_session.guild_channel_create_category,
             guild_id, name, permission_overwrites, nsfw))
@@ -198,12 +199,13 @@ class DiscordClientAsync:
     async def guild_role_list(self, guild_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.guild_role_list, guild_id))
 
-    async def guild_role_create(self, guild_id: str, permissions: int = None, color: int = None, hoist: bool = None,
+    async def guild_role_create(self, guild_id: str, name: str = None, permissions: int = None,
+                                color: int = None, hoist: bool = None,
                                 mentionable: bool = None) -> dict:
         return await self.rate_limit(
             f_partial(
                 self.rest_session.guild_role_create,
-                guild_id, permissions, color, hoist, mentionable))
+                guild_id, name, permissions, color, hoist, mentionable))
 
     async def guild_role_position_modify(self, guild_id: str,
                                          list_of_role_positions: typing.List[typing.Dict[str, int]]) -> dict:

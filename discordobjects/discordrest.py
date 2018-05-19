@@ -145,7 +145,7 @@ class DiscordSession(RequestsSession):
         # NOTE: this function should not be called directly
         return self.post(f'{self.API_URL}/guilds/{guild_id}/channels', json=params)
 
-    def guild_channel_create_text(self, guild_id: str, name: str, permission_overwrites: dict = None,
+    def guild_channel_create_text(self, guild_id: str, name: str, permission_overwrites: typing.List[dict] = None,
                                   parent_id: str = None, nsfw: bool = None) -> RequestsResponse:
         new_channel_params = {'name': name, 'type': 0}
         if permission_overwrites is not None:
@@ -157,7 +157,7 @@ class DiscordSession(RequestsSession):
 
         return self._guild_channel_create(guild_id, new_channel_params)
 
-    def guild_channel_create_voice(self, guild_id: str, name: str, permission_overwrites: dict = None,
+    def guild_channel_create_voice(self, guild_id: str, name: str, permission_overwrites: typing.List[dict] = None,
                                    parent_id: str = None, nsfw: bool = None,
                                    bitrate: int = None, user_limit: int = None) -> RequestsResponse:
         new_channel_params = {'name': name, 'type': 2}
@@ -174,7 +174,7 @@ class DiscordSession(RequestsSession):
 
         return self._guild_channel_create(guild_id, new_channel_params)
 
-    def guild_channel_create_category(self, guild_id: str, name: str, permission_overwrites: dict = None,
+    def guild_channel_create_category(self, guild_id: str, name: str, permission_overwrites: typing.List[dict] = None,
                                       nsfw: bool = None) -> RequestsResponse:
         # NOTE: Category channels can't have parents. Not documented in API reference but was found experimentally
         new_channel_params = {'name': name, 'type': 4}
@@ -269,9 +269,11 @@ class DiscordSession(RequestsSession):
     def guild_role_list(self, guild_id: str) -> RequestsResponse:
         return self.get(f'{self.API_URL}/guilds/{guild_id}/roles')
 
-    def guild_role_create(self, guild_id: str, permissions: int = None, color: int = None,
+    def guild_role_create(self, guild_id: str, name: str = None, permissions: int = None, color: int = None,
                           hoist: bool = None, mentionable: bool = None) -> RequestsResponse:
         params = {}
+        if name is not None:
+            params['name'] = name
         if permissions is not None:
             params['permissions'] = permissions
         if permissions is not None:
