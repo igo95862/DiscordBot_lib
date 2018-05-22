@@ -266,9 +266,14 @@ class MemberNotInGuild(DiscordObjectsException):
 
 def rest_exception_handler(request: Response):
     try:
-        json_dict = request.json()
+        json_dict: dict = request.json()
     except JSONDecodeError:
         raise request.raise_for_status()
 
-    exception_to_raise = json_exceptions_map.get(json_dict['code'], RestError(request, json_dict))
+    error_code = json_dict.get('code', None)
+
+    if error_code:
+        exception_to_raise = json_exceptions_map.get(json_dict['code'], RestError(request, json_dict))
+    else:
+        exception_to_raise = RestError(request, json_dict)
     raise exception_to_raise
