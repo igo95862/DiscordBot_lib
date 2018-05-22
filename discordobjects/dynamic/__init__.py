@@ -2,9 +2,10 @@
 Dynamic objects that can update themselves without intervention.
 """
 
+from .canvas import Canvas
 from .command_handle import CommandHandle, CommandCallback
 from .guild_members import LiveGuildMembers
 from .guild_roles import LiveGuildRoles
-from .canvas import Canvas
+from .voice_state import VoiceStateManager, VoiceEvents, VoiceState
 
-__all__ = ['LiveGuildMembers', 'LiveGuildRoles', 'CommandHandle', 'Canvas', 'CommandCallback']
+__all__ = ['LiveGuildMembers', 'LiveGuildRoles', 'CommandHandle', 'Canvas', 'CommandCallback', 'VoiceStateManager']

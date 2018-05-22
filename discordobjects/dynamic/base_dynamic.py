@@ -14,7 +14,6 @@ class BaseDynamic:
             start_immediately: bool = True):
         self.client_bind = client_bind
         self.event_loop = event_loop
-        self.queue_dispenser = QueueDispenser
         self.auto_update_task: asyncio.Task = None
         self.await_init: asyncio.Future = asyncio.Future(loop=self.event_loop)
         self.queue_dispenser = QueueDispenser(queue_dispencer_slots)
