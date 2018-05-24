@@ -1,9 +1,9 @@
-from ..client import DiscordClientAsync
-from ..constants import SocketEventNames
-from ..util import StrEnum
-from .base_dynamic import BaseDynamic
-import typing
 import asyncio
+import typing
+
+from .base_dynamic import BaseDynamic
+from ..client import DiscordClientAsync
+from ..util import StrEnum
 
 
 class VoiceEvents(StrEnum):
@@ -17,17 +17,19 @@ class VoiceEvents(StrEnum):
 class VoiceState:
 
     def __init__(self, user_id: str, session_id: str, deaf: bool, mute: bool,
-                 self_deaf: bool, self_mute: bool, suppress: bool,
-                 channel_id: str, guild_id: str = None):
+                 self_deaf: bool, self_mute: bool, suppress: bool, self_video: bool,
+                 channel_id: str, guild_id: str = None, member: dict = None):
         self.user_id = user_id
         self.session_id = session_id
         self.deaf = deaf
         self.mute = mute
         self.self_deaf = self_deaf
         self.self_mute = self_mute
+        self.self_video = self_video
         self.suppress = suppress
         self.channel_id = channel_id
         self.guild_id = guild_id
+        self.member = member
 
 
 class VoiceStateManager(BaseDynamic):
@@ -50,6 +52,9 @@ class VoiceStateManager(BaseDynamic):
                 new_channel_id = voice_state_dict['channel_id']
                 if new_channel_id is not None:
                     self._user_joined_chanel(changed_user_id, new_channel_id)
+
+                if old_channel_id is not None:
+                    self._user_left_channel(changed_user_id, old_channel_id)
                 self.voice_states[changed_user_id].__init__(**voice_state_dict)
 
             except KeyError:
@@ -59,11 +64,9 @@ class VoiceStateManager(BaseDynamic):
         coroutine = self.queue_dispenser.event_put(VoiceEvents.JOIN_CHANNEL, (user_id, channel_id))
         self.event_loop.create_task(coroutine)
 
-    def _user_left_channel(self):
-        pass
-
-    def _user_(self):
-        pass
+    def _user_left_channel(self, user_id: str, channel_id: str):
+        coroutine = self.queue_dispenser.event_put(VoiceEvents.LEAVE_CHANNEL, (user_id, channel_id))
+        self.event_loop.create_task(coroutine)
 
     async def on_user_join_channel(self) -> typing.AsyncGenerator[typing.Tuple[str, str], None]:
         queue = asyncio.Queue()
@@ -71,5 +74,8 @@ class VoiceStateManager(BaseDynamic):
         while True:
             yield (await queue.get())[0]
 
-
-
+    async def on_user_left_channel(self) -> typing.AsyncGenerator[typing.Tuple[str, str], None]:
+        queue = asyncio.Queue()
+        self.queue_dispenser.queue_add_single_slot(queue, VoiceEvents.LEAVE_CHANNEL)
+        while True:
+            yield (await queue.get())[0]
