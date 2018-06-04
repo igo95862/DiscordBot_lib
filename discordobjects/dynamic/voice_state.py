@@ -58,7 +58,10 @@ class VoiceStateManager(BaseDynamic):
                 self.voice_states[changed_user_id].__init__(**voice_state_dict)
 
             except KeyError:
-                self.voice_states[changed_user_id] = VoiceState(**voice_state_dict)
+                new_voice_state = VoiceState(**voice_state_dict)
+                self.voice_states[changed_user_id] = new_voice_state
+                if new_voice_state.channel_id is not None:
+                    self._user_joined_chanel(new_voice_state.user_id, new_voice_state.channel_id)
 
     def _user_joined_chanel(self, user_id: str, channel_id: str):
         coroutine = self.queue_dispenser.event_put(VoiceEvents.JOIN_CHANNEL, (user_id, channel_id))
