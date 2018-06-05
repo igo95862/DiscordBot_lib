@@ -43,6 +43,7 @@ class VoiceStateManager(BaseDynamic):
         super().__init__(self.client_bind, VoiceEvents, event_loop, start_immediately)
 
     async def _auto_update(self):
+        self.await_init.set_result(True)
 
         async for voice_state_dict in self.client_bind.event_gen_voice_state_update_gen():
             changed_user_id = voice_state_dict['user_id']
