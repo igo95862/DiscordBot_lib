@@ -183,6 +183,7 @@ class Guild(PartialGuild):
                 if r['guild_id'] == self.snowflake:
                     yield User(self.client_bind, **r['user'])
     '''
+
     async def get_member_from_user(self, user: User) -> typing.Awaitable[GuildMember]:
         return typing.cast(typing.Awaitable[GuildMember],
                            GuildMember(self.client_bind,
@@ -233,6 +234,13 @@ class GuildChannel(Channel):
             self.client_bind, **(await self.client_bind.channel_modify(self.snowflake, new_nsfw=nsfw))
         )
 
+    async def delete_async(self):
+        await self.client_bind.channel_delete(self.snowflake)
+
+    async def add_member_overwrite_async(self, member: GuildMember, allow: int, deny: int):
+        await self.client_bind.channel_permissions_overwrite_edit(
+            self.snowflake, member.snowflake, allow, deny, 'member')
+
 
 class GuildCategory(GuildChannel):
 
@@ -243,6 +251,14 @@ class GuildCategory(GuildChannel):
         super().__init__(client_bind, id, guild_id, name, type, position, permission_overwrites, parent_id, nsfw)
 
         self.kwargs_handler(**kwargs)
+
+    async def voice_channel_create_async(
+            self, name: str, permission_overwrites: typing.List[dict] = None,
+            nsfw: bool = None, bitrate: int = None, user_limit: int = None) -> 'GuildVoiceChannel':
+        new_channel_dict = await self.client_bind.guild_channel_create_voice(
+            self.guild_id, name, permission_overwrites, self.snowflake, nsfw, bitrate, user_limit)
+
+        return GuildVoiceChannel(self.client_bind, **new_channel_dict)
 
 
 class GuildTextChannel(GuildChannel, TextChannel):
@@ -270,3 +286,15 @@ class GuildVoiceChannel(GuildChannel):
         self.user_limit = user_limit
 
         self.kwargs_handler(**kwargs)
+
+    async def member_move_to_async(self, member: typing.Union[str, GuildMember]):
+        if isinstance(member, GuildMember):
+            member_id = member.snowflake
+        elif isinstance(member, str):
+            assert member.isdigit(), (f"member_move_to_async was called with string not containing only digits. "
+                                      f"String: {member}")
+            member_id = member
+        else:
+            raise TypeError('member_move_to_async was called with neither GuildMember or id string')
+
+        await self.client_bind.guild_member_modify(self.guild_id, member_id, new_channel_id=self.snowflake)
