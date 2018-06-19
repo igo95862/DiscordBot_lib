@@ -121,23 +121,20 @@ class DiscordSocketThread:
 
 class SocketThread:
 
-    def __init__(self, token: str):
+    def __init__(self, token: str, start_immediately: bool = True):
+        self.token = token
         self.local_event_loop = asyncio.get_event_loop()
+        self.session_id: str = None
 
         self.discord_socket_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-        self.discord_socket = discordsocket.DiscordSocket(
-            token, event_loop=self.discord_socket_loop, event_handler=dummy_plug)
-
+        self.discord_socket: discordsocket.DiscordSocket = None
         self.thread = ThreadPoolExecutor(max_workers=1)
-        self.thread_future = self.thread.submit(self.discord_socket_loop.run_forever)
+        # self.thread_future = self.thread.submit(self.discord_socket_loop.run_forever)
 
-        self.discord_socket_future = asyncio.run_coroutine_threadsafe(
-            self.discord_socket.init(),
-            self.discord_socket_loop)
-
-        self.discord_socket_future.add_done_callback(self._socket_future_complete)
+        self.discord_socket_future: ConcurrentFuture = None
 
         self.failure_count = 0
+        self.is_running = False
 
         # Event Dispensers
         self.event_ready = EventDispenser(self.local_event_loop)
@@ -215,7 +212,21 @@ class SocketThread:
             SocketEventNames.VOICE_SERVER_UPDATE: self.event_voice_server_update,
             SocketEventNames.WEBHOOKS_UPDATE: self.event_webhooks_update,
         }
+        finalize(self, self.shutdown)
+        if start_immediately:
+            self.start()
 
+    async def put_event(self, event_dict: dict):
+        op_code = event_dict['op']
+
+        if op_code == 0:
+            event_name = event_dict['t']
+            try:
+                self.event_map[event_name].put(event_dict['d'])
+            except KeyError:
+                logging.error(
+                    (f"Tried to put event that does not have a slot: {event_name}."
+                     f" Event data: {event_dict['d']}"))
 
     def _socket_future_complete(self, finished_future: ConcurrentFuture):
         if self.discord_socket_future.cancelled():
@@ -233,7 +244,38 @@ class SocketThread:
             logging.critical(f"Failed to reinitialize socket {self.failure_count}. Shutting down.")
             return
 
+        self.session_id = self.discord_socket.session_id
+        self.start()
+
+    def start(self):
+        self.discord_socket = discordsocket.DiscordSocket(
+            self.token, event_loop=self.discord_socket_loop,
+            event_handler=lambda d: asyncio.run_coroutine_threadsafe(self.put_event(d), self.local_event_loop),
+            session_id=self.session_id)
+
+        '''
         self.discord_socket_future = asyncio.run_coroutine_threadsafe(
             self.discord_socket.init(),
             self.discord_socket_loop)
-        self.discord_socket_future.add_done_callback(self._socket_future_complete)
+        '''
+
+        self.thread_future = self.thread.submit(self.discord_socket_loop.run_until_complete, self.discord_socket.init())
+
+        # self.discord_socket_future.add_done_callback(self._socket_future_complete)
+        self.is_running = True
+
+    def stop(self):
+        self.is_running = False
+        self.discord_socket_future.cancel()
+        concurrent_wait((self.discord_socket_future,))
+
+    def shutdown(self):
+        if self.is_running:
+            self.stop()
+
+        def stop_loop():
+            self.discord_socket_loop.stop()
+
+        self.discord_socket_loop.call_soon_threadsafe(stop_loop)
+        concurrent_wait((self.thread_future,))
+        self.thread.shutdown()

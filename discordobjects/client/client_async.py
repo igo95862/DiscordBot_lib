@@ -3,9 +3,8 @@ import typing
 from _functools import partial as f_partial
 
 from .rate_limit_simple import RateLimitSimple
-from ..constants import SocketEventNames
 from ..discordrest import DiscordSession
-from ..discordsocket_thread import DiscordSocketThread
+from ..discordsocket_thread import SocketThread
 
 
 class DiscordClientAsync:
@@ -18,8 +17,40 @@ class DiscordClientAsync:
         self.rate_limit = RateLimitSimple(self.event_loop)
         self.socket_thread = None
         # TODO: sharding
-        if use_socket:
-            self.socket_thread = DiscordSocketThread(token)
+        self.socket_thread = SocketThread(token, start_immediately=use_socket)
+
+        self.event_ready = self.socket_thread.event_ready
+        self.event_resumed = self.socket_thread.event_resumed
+        self.event_channel_create = self.socket_thread.event_channel_create
+        self.event_channel_update = self.socket_thread.event_channel_update
+        self.event_channel_delete = self.socket_thread.event_channel_delete
+        self.event_channel_pins_update = self.socket_thread.event_channel_pins_update
+        self.event_guild_create = self.socket_thread.event_guild_create
+        self.event_guild_update = self.socket_thread.event_guild_update
+        self.event_guild_delete = self.socket_thread.event_guild_delete
+        self.event_guild_ban_add = self.socket_thread.event_guild_ban_add
+        self.event_guild_ban_remove = self.socket_thread.event_guild_ban_remove
+        self.event_guild_emoji_update = self.socket_thread.event_guild_emoji_update
+        self.event_guild_integrations_update = self.socket_thread.event_guild_integrations_update
+        self.event_guild_member_add = self.socket_thread.event_guild_member_add
+        self.event_guild_member_update = self.socket_thread.event_guild_member_update
+        self.event_guild_member_remove = self.socket_thread.event_guild_member_remove
+        self.event_guild_role_create = self.socket_thread.event_guild_role_create
+        self.event_guild_role_update = self.socket_thread.event_guild_role_update
+        self.event_guild_role_delete = self.socket_thread.event_guild_role_delete
+        self.event_message_create = self.socket_thread.event_message_create
+        self.event_message_update = self.socket_thread.event_message_update
+        self.event_message_delete = self.socket_thread.event_message_delete
+        self.event_message_delete_bulk = self.socket_thread.event_message_delete_bulk
+        self.event_message_reaction_add = self.socket_thread.event_message_reaction_add
+        self.event_message_reaction_remove = self.socket_thread.event_message_reaction_remove
+        self.event_message_reaction_remove_all = self.socket_thread.event_message_reaction_remove_all
+        self.event_presence_update = self.socket_thread.event_presence_update
+        self.event_typing_start = self.socket_thread.event_typing_start
+        self.event_user_update = self.socket_thread.event_user_update
+        self.event_voice_state_update = self.socket_thread.event_voice_state_update
+        self.event_voice_server_update = self.socket_thread.event_voice_server_update
+        self.event_webhooks_update = self.socket_thread.event_webhooks_update
 
     async def user_get(self, user_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.user_get, user_id))
@@ -42,6 +73,7 @@ class DiscordClientAsync:
 
     async def me_dm_list(self) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.me_dm_list))
+
     # endregion
 
     # region Direct Messaging (DM) functions
@@ -57,6 +89,7 @@ class DiscordClientAsync:
 
     async def dm_channel_user_remove(self, channel_id: str, user_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.dm_user_remove, channel_id, user_id))
+
     # endregion
 
     # region Guild
@@ -82,7 +115,7 @@ class DiscordClientAsync:
             new_explicit_content_filter, new_afk_channel_id,
             new_afk_timeout, new_icon, new_owner,
             new_splash, new_system_channel_id
-            ))
+        ))
 
     async def guild_delete(self, guild_id: str) -> bool:
         return await self.rate_limit(f_partial(self.rest_session.guild_delete, guild_id))
@@ -559,209 +592,3 @@ class DiscordClientAsync:
 
     async def gateway_bot_get(self) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.gateway_bot_get))
-
-    # region Web socket functions
-
-    # region Channel
-    async def event_gen_channel_create(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.CHANNEL_CREATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_channel_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.CHANNEL_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_channel_delete(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.CHANNEL_DELETE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_channel_pins_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.CHANNEL_PINS_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    # endregion
-
-    # region Guild
-    async def event_gen_guild_create(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_CREATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_delete(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_DELETE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_ban_add(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_BAN_ADD)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_ban_remove(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_BAN_REMOVE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_emojies_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_EMOJIS_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_integrations_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_INTEGRATIONS_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_member_add(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_MEMBER_ADD)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_member_remove(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_MEMBER_REMOVE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_member_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_MEMBER_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_role_create(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_ROLE_CREATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_role_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_ROLE_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_guild_role_delete(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.GUILD_ROLE_DELETE)
-        while True:
-            yield (await queue.get())[0]
-
-    # endregion
-
-    # region Message
-    async def event_gen_message_create(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.MESSAGE_CREATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_message_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.MESSAGE_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_message_delete(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.MESSAGE_DELETE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_message_delete_bulk(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.MESSAGE_DELETE_BULK)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_message_reaction_add(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.MESSAGE_REACTION_ADD)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_message_reaction_remove(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.MESSAGE_REACTION_REMOVE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_message_reaction_remove_all(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.MESSAGE_REACTION_REMOVE_ALL)
-        while True:
-            yield (await queue.get())[0]
-
-    # endregion
-
-    # region Presence
-    async def event_gen_presence_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.PRESENCE_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_typing_start(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.TYPING_START)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_user_update_gen(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.USER_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    # endregion
-
-    # region Voice
-    async def event_gen_voice_state_update_gen(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.VOICE_STATE_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_voice_server_update_gen(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.VOICE_SERVER_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    # endregion
-
-    async def event_gen_webhooks_update(self) -> typing.AsyncGenerator[dict, None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_single(queue, SocketEventNames.WEBHOOKS_UPDATE)
-        while True:
-            yield (await queue.get())[0]
-
-    async def event_gen_multiple(self, event_names_tuple: typing.Tuple[str, ...]
-                                 ) -> typing.AsyncGenerator[typing.Tuple[dict, str], None]:
-        queue = asyncio.Queue()
-        self.socket_thread.event_queue_add_multiple(queue, event_names_tuple)
-        while True:
-            yield (await queue.get())
-
-    # endregion
