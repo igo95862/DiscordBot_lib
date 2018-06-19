@@ -331,8 +331,11 @@ class DiscordClientAsync:
                 self.rest_session.channel_message_list,
                 channel_id, limit, around, before, after))
 
-    async def channel_message_iter(self, channel_id: str, step_size: int = 100) -> typing.AsyncGenerator[dict, None]:
-        downloaded_messages_dicts: typing.List[dict] = await self.channel_message_list(channel_id, limit=step_size)
+    async def channel_message_iter(
+            self, channel_id: str, start_id: str = None, step_size: int = 100) -> typing.AsyncGenerator[dict, None]:
+
+        downloaded_messages_dicts: typing.List[dict] = await self.channel_message_list(
+            channel_id, limit=step_size, before=start_id)
 
         while len(downloaded_messages_dicts) != 0:
             for d in downloaded_messages_dicts:

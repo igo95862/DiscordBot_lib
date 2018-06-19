@@ -26,7 +26,8 @@ class DiscordSocket:
                  presence={'status': 'online', 'afk': False}.copy(),
                  shard_num: int = 0, shard_total: int = 1,
                  event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop(),
-                 event_handler: typing.Callable[[dict], None] = print
+                 event_handler: typing.Callable[[dict], None] = print,
+                 session_id: str = None
                  ):
 
         self.token = token
@@ -43,7 +44,7 @@ class DiscordSocket:
         self.heartbeat_sequence: int = None
 
         self.ready_payload: dict = None
-        self.session_id = None
+        self.session_id: str = session_id
 
         self.event_handler = event_handler
 
