@@ -56,6 +56,7 @@ class DiscordSocket:
                 if not heart_beat.cancelled():
                     heart_beat.cancel()
 
+        self.running = True
         while self.running:
             try:
                 async with websockets.connect(self.socket_url, timeout=1, loop=self.event_loop) as discord_socket:
@@ -78,6 +79,7 @@ class DiscordSocket:
                         if payload['op'] == 11:  # discarding the op11 heartbeat ACK
                             continue
                         elif payload['op'] == 9:
+                            logging.warning('Session resume rejected.')
                             await asyncio.sleep(4)
                             await self._identify(discord_socket)
                             continue
@@ -87,18 +89,6 @@ class DiscordSocket:
 
                         self.event_loop.call_soon(partial(self.event_handler, payload))
             except websockets.exceptions.ConnectionClosed:
-                if isinstance(heart_beat, asyncio.Task):
-                    if not heart_beat.cancelled():
-                        heart_beat.cancel()
-            except asyncio.CancelledError:
-                cancel_heartbeat()
-                return
-            except Exception as e:
-                logging.exception(e)
-                cancel_heartbeat()
-                raise
-            else:
-                self.running = False
                 cancel_heartbeat()
 
     async def _heartbeat_cycle(self, websocket) -> None:

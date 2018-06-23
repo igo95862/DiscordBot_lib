@@ -127,9 +127,12 @@ class SocketThread:
         self.session_id: str = None
 
         self.discord_socket_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-        self.discord_socket: discordsocket.DiscordSocket = None
+        self.discord_socket: discordsocket.DiscordSocket = discordsocket.DiscordSocket(
+            self.token, event_loop=self.discord_socket_loop,
+            event_handler=lambda d: asyncio.run_coroutine_threadsafe(self.put_event(d), self.local_event_loop),
+            session_id=self.session_id)
         self.thread = ThreadPoolExecutor(max_workers=1)
-        # self.thread_future = self.thread.submit(self.discord_socket_loop.run_forever)
+        self.thread_future = self.thread.submit(self.discord_socket_loop.run_forever)
 
         self.discord_socket_future: ConcurrentFuture = None
 
@@ -229,6 +232,7 @@ class SocketThread:
                      f" Event data: {event_dict['d']}"))
 
     def _socket_future_complete(self, finished_future: ConcurrentFuture):
+        self.session_id = self.discord_socket.session_id
         if self.discord_socket_future.cancelled():
             logging.info(f"Socket was canceled")
             return
@@ -244,24 +248,13 @@ class SocketThread:
             logging.critical(f"Failed to reinitialize socket {self.failure_count}. Shutting down.")
             return
 
-        self.session_id = self.discord_socket.session_id
         self.start()
 
     def start(self):
-        self.discord_socket = discordsocket.DiscordSocket(
-            self.token, event_loop=self.discord_socket_loop,
-            event_handler=lambda d: asyncio.run_coroutine_threadsafe(self.put_event(d), self.local_event_loop),
-            session_id=self.session_id)
-
-        '''
         self.discord_socket_future = asyncio.run_coroutine_threadsafe(
             self.discord_socket.init(),
             self.discord_socket_loop)
-        '''
-
-        self.thread_future = self.thread.submit(self.discord_socket_loop.run_until_complete, self.discord_socket.init())
-
-        # self.discord_socket_future.add_done_callback(self._socket_future_complete)
+        self.discord_socket_future.add_done_callback(self._socket_future_complete)
         self.is_running = True
 
     def stop(self):
