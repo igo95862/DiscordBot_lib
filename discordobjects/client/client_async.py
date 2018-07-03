@@ -52,6 +52,9 @@ class DiscordClientAsync:
         self.event_voice_server_update = self.socket_thread.event_voice_server_update
         self.event_webhooks_update = self.socket_thread.event_webhooks_update
 
+    def start_socket(self):
+        self.socket_thread.start()
+
     async def user_get(self, user_id: str) -> dict:
         return await self.rate_limit(f_partial(self.rest_session.user_get, user_id))
 

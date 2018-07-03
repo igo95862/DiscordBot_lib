@@ -241,6 +241,20 @@ class GuildChannel(Channel):
         await self.client_bind.channel_permissions_overwrite_edit(
             self.snowflake, member.snowflake, allow, deny, 'member')
 
+    async def add_role_overwrite_async(self, role: typing.Union[Role, str], allow: int, deny: int):
+        if isinstance(role, Role):
+            role_id = role.snowflake
+        elif isinstance(role, str):
+            role_id = role
+        else:
+            raise TypeError(f"add_role_overwrite_async was called with neither Role or role id.")
+
+        await self.client_bind.channel_permissions_overwrite_edit(
+            self.snowflake, role_id, allow, deny, 'role')
+
+    async def rename_async(self, new_name: str):
+        await self.client_bind.channel_modify(self.snowflake, new_name=new_name)
+
 
 class GuildCategory(GuildChannel):
 
