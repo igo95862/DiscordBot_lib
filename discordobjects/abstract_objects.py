@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from .client import DiscordClientAsync
-from typing import AsyncGenerator, Tuple, Type, Union, Sequence, List, Awaitable, Collection
+from typing import AsyncGenerator, Tuple, Type, Union, Sequence, List, Awaitable, Collection, get_type_hints
 
 
 class AbstractBase(ABC):
@@ -57,10 +57,13 @@ class AbstractChannel(AbstractBase):
     @property
     @abstractmethod
     def type_int(self) -> int:
-        pass
+        ...
+
+    async def delete_async(self):
+        await self.client_bind.channel_delete(self.snowflake)
 
 
-class MixinTextChannel(AbstractChannel):
+class AbstractMixinTextChannel(AbstractChannel):
 
     @property
     @abstractmethod
@@ -93,11 +96,21 @@ class AbstractMessage(AbstractBase):
 
     @property
     @abstractmethod
+    def author_user(self) -> AbstractUser:
+        ...
+
+    @property
+    @abstractmethod
+    def author_member(self) -> AbstractUser:
+        ...
+
+    @property
+    @abstractmethod
     def parent_channel_id(self) -> str:
         ...
 
-    def delete_async(self) -> Awaitable[bool]:
-        return self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
+    async def delete_async(self):
+        await self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
 
     @abstractmethod
     def edit_async(self, new_content: str) -> 'AbstractMessage':
@@ -131,13 +144,26 @@ class AbstractGuildMember(AbstractUser):
 
 
 class AbstractGuildChannel(AbstractChannel):
-    ...
+
+    async def edit_permission(self, subject: Union[AbstractUser, AbstractGuildRole]):
+        if isinstance(subject, AbstractUser):
+            subject_type = 'member'
+        elif isinstance(subject, AbstractGuildRole):
+            subject_type = 'role'
+        else:
+            raise TypeError(f"edit_permission called with wrong type. Got {subject.__class__}, expected {Union[AbstractUser, AbstractGuildRole]}")
+
+        await self.client_bind.channel_permissions_overwrite_edit(self.snowflake, subject.snowflake, )
 
 
 class AbstractGuildChannelCategory(AbstractGuildChannel):
     pass
 
 
-class AbstractGuildChannelText(AbstractGuildChannel, MixinTextChannel):
+class AbstractGuildChannelText(AbstractGuildChannel, AbstractMixinTextChannel):
+    pass
+
+
+class AbstractGuildChannelVoice(AbstractGuildChannel, AbstractMixinVoiceChannel):
     pass
 
