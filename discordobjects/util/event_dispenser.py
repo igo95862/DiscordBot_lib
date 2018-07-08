@@ -1,8 +1,12 @@
 from asyncio import Queue as AsyncioQueue, AbstractEventLoop, iscoroutinefunction
 from collections import deque as Deque
 from typing import (Deque as TypingDeque, TypeVar, Callable as TypingCallable, Coroutine as TypingCoroutine,
-                    AsyncGenerator as TypingAsyncGenerator, Union as TypingUnion)
+                    AsyncGenerator as TypingAsyncGenerator, Union as TypingUnion, Generic)
 from weakref import ref as weak_ref
+from logging import getLogger
+from .coroutine_wrapper import wrap_if_coroutine
+
+logger = getLogger(__name__)
 
 EventData = TypeVar('EventData')
 CallbackType = TypingCallable[[EventData], None]
@@ -10,7 +14,7 @@ CoroutineType = TypingCoroutine[EventData, None, None]
 WeakRefCallbackType = TypingCallable[[CallbackType], None]
 
 
-class EventDispenser:
+class EventDispenser(Generic[EventData]):
 
     def __init__(self, event_loop: AbstractEventLoop):
         self._callback_array: TypingDeque[WeakRefCallbackType] = Deque()
@@ -27,15 +31,9 @@ class EventDispenser:
             yield (await new_queue.get())
 
     def callback_add(self, new_callback: TypingUnion[CallbackType, CoroutineType]) -> 'CallbackHandle':
-        if not iscoroutinefunction(new_callback):
-            new_weak_ref = weak_ref(new_callback, self._clean_dead_ref)
-            handle = CallbackHandle(self, new_callback)
-        else:
-            def coroutine_wraper(event_data: EventData):
-                self.event_loop.create_task(new_callback(event_data))
-
-            handle = CallbackHandle(self, coroutine_wraper, )
-            new_weak_ref = weak_ref(coroutine_wraper, self._clean_dead_ref)
+        coroutine_wrapper = wrap_if_coroutine(self.event_loop, new_callback)
+        handle = CallbackHandle(self, coroutine_wrapper, )
+        new_weak_ref = weak_ref(coroutine_wrapper, self._clean_dead_ref)
 
         self._callback_array.append(new_weak_ref)
         return handle
@@ -45,6 +43,7 @@ class EventDispenser:
 
     def _clean_dead_ref(self, dead_ref: weak_ref):
         self._callback_array.remove(dead_ref)
+        logger.debug(f"Removed dead weak reference {dead_ref}")
 
     def put(self, event_data: EventData):
         for callback_weakref in self._callback_array:
