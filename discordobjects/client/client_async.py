@@ -389,20 +389,22 @@ class DiscordClientAsync:
             f_partial(
                 self.rest_session.channel_message_reaction_create,
                 channel_id, message_id, emoji),
-            ('Emoji channel:', channel_id))
+            ('Emoji ', ))
 
     async def channel_message_reaction_my_delete(self, channel_id: str, message_id: str, emoji: int) -> bool:
         return await self.rate_limit(
             f_partial(
                 self.rest_session.channel_message_reaction_my_delete,
-                channel_id, message_id, emoji))
+                channel_id, message_id, emoji),
+            ('Emoji ',))
 
     async def channel_message_reaction_delete(self, channel_id: str, message_id: str, user_id: str,
                                               emoji: str) -> bool:
         return await self.rate_limit(
             f_partial(
                 self.rest_session.channel_message_reaction_delete,
-                channel_id, message_id, user_id, emoji))
+                channel_id, message_id, user_id, emoji),
+            ('Emoji ',))
 
     async def channel_message_reaction_list_users(self, channel_id: str, message_id: str,
                                                   emoji: str, before: str = None,
@@ -429,7 +431,7 @@ class DiscordClientAsync:
             f_partial(
                 self.rest_session.channel_message_reaction_delete_all,
                 channel_id, message_id),
-            ('Emoji channel:', channel_id))
+            ('Emoji ',))
 
     async def channel_message_edit(self, channel_id: str, message_id: str, content: str = None,
                                    embed: dict = None) -> dict:

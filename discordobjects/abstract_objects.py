@@ -69,6 +69,31 @@ class AbstractChannel(AbstractBase):
         await self.client_bind.channel_delete(self.snowflake)
 
 
+def split_message(total_text: str, break_chars: Sequence[str] = ('\n', '.', ','), threshold: int = 1000) -> List[str]:
+    if isinstance(total_text, str):
+        # Preform split
+        max_length = MESSAGE_MAX_LENGTH
+        message_fragments = []
+        curr_pos = 0
+        while len(total_text) - curr_pos > max_length:
+            for bc in break_chars:
+                next_break = total_text.rfind(bc, curr_pos, curr_pos + max_length)
+                if next_break != -1 and (curr_pos + next_break) > threshold:
+                    message_fragments.append(total_text[curr_pos:next_break])
+                    curr_pos = next_break
+                    break
+
+            else:
+                message_fragments.append(total_text[curr_pos:curr_pos + max_length])
+                curr_pos += max_length
+
+        message_fragments.append(total_text[curr_pos:])
+    else:
+        message_fragments = total_text
+
+    return message_fragments
+
+
 class AbstractMixinTextChannel(AbstractChannel):
 
     @property
@@ -93,28 +118,7 @@ class AbstractMixinTextChannel(AbstractChannel):
             break_chars: Sequence[str] = ('\n', '.', ','), threshold: int = 1000
     ) -> List['AbstractMessage']:
 
-        if isinstance(content, str):
-            # Preform split
-            max_length = MESSAGE_MAX_LENGTH
-            message_fragments = []
-            curr_pos = 0
-            while len(content) - curr_pos > max_length:
-                for bc in break_chars:
-                    next_break = content.rfind(bc, curr_pos, curr_pos + max_length)
-                    if next_break != -1 and (curr_pos + next_break) > threshold:
-                        message_fragments.append(content[curr_pos:next_break])
-                        curr_pos = next_break
-                        break
-
-                else:
-                    message_fragments.append(content[curr_pos:curr_pos + max_length])
-                    curr_pos += max_length
-
-            message_fragments.append(content[curr_pos:])
-        else:
-            message_fragments = content
-
-        return [await self.post_single_message_async(x) for x in message_fragments]
+        return [await self.post_single_message_async(x) for x in split_message(content, break_chars, threshold)]
 
     @property
     @abstractmethod
@@ -148,7 +152,7 @@ class AbstractMessage(AbstractBase):
 
     @property
     @abstractmethod
-    def author_member(self) -> AbstractUser:
+    def author_member(self) -> 'AbstractGuildMember':
         ...
 
     @property
@@ -160,7 +164,7 @@ class AbstractMessage(AbstractBase):
         await self.client_bind.channel_message_delete(self.parent_channel_id, self.snowflake)
 
     @abstractmethod
-    def edit_async(self, new_content: str) -> 'AbstractMessage':
+    async def edit_async(self, new_content: str) -> 'AbstractMessage':
         ...
 
     async def add_reaction_async(self, emoji_name: Union[str, 'AbstractEmoji'], emoji_id: str = None):
@@ -205,7 +209,7 @@ class AbstractMessage(AbstractBase):
 
     @property
     @abstractmethod
-    async def event_message_reaction_remove(self) -> EventDispenser:
+    def event_message_reaction_remove(self) -> EventDispenser:
         ...
 
     @property
@@ -218,8 +222,12 @@ class AbstractMessage(AbstractBase):
     def mentioned_members(self) -> Collection['AbstractGuildMember']:
         ...
 
-    async def reply_async(self, content: str):
-        await self.client_bind.channel_message_create(self.parent_channel_id, content)
+    @abstractmethod
+    async def reply_async(self, content: str) -> 'AbstractMessage':
+        ...
+
+    async def reply_multiple_async(self, content: str) -> List['AbstractMessage']:
+        return [await self.reply_async(x) for x in split_message(content)]
 
 
 class AbstractEmoji(ABC):
@@ -344,7 +352,19 @@ class AbstractGuildRole(AbstractBase):
 
 
 class AbstractGuildMember(AbstractUser):
-    pass
+
+    @property
+    @abstractmethod
+    def role_ids(self) -> List[str]:
+        ...
+
+    def __contains__(self, item: Union[AbstractGuildRole, str]):
+        if isinstance(item, AbstractGuildRole):
+            return item.snowflake in self.role_ids
+        elif isinstance(item, str):
+            return item in self.role_ids
+        else:
+            raise TypeError(f" in Guild Member accepts Abstract Role or str, got {item.__class__}")
 
 
 class AbstractGuildChannel(AbstractChannel):

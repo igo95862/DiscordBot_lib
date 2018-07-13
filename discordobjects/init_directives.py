@@ -1,4 +1,4 @@
-from asyncio import get_event_loop
+from asyncio import get_event_loop, wait
 
 from .client import DiscordClientAsync
 from .dynamic import GuildUnit
@@ -10,8 +10,14 @@ def init_guild(token: str, guild_id: str):
     client = DiscordClientAsync(token, use_socket=False)
     guild_unit = GuildUnit(client, guild_id, loop)
     client.start_socket()
+    loop.run_until_complete(guild_unit)
     return guild_unit
 
-def general_init(
-        token: str, guild_ids: Iterable[str], channel_ids: Iterable[str], message_ids: Iterable[Tuple[str, str]]):
-    pass
+
+def init_multiple_guilds(token: str, *args: str) -> Tuple[GuildUnit, ...]:
+    loop = get_event_loop()
+    client = DiscordClientAsync(token, use_socket=False)
+    guilds = tuple((GuildUnit(client, x, loop) for x in args))
+    client.start_socket()
+    loop.run_until_complete(wait(fs=guilds, loop=loop))
+    return guilds

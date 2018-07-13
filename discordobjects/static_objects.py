@@ -1,5 +1,7 @@
 from typing import Tuple, AsyncGenerator, Type, Collection, Dict, Set, FrozenSet, List, Optional
 import logging
+
+from discordobjects.util import EventDispenser
 from .client import DiscordClientAsync
 from .abstract_objects import (AbstractBase, AbstractUser, AbstractMixinTextChannel, AbstractMessage,
                                AbstractDmChannel, AbstractEmoji)
@@ -98,6 +100,17 @@ class StaticMixinTextChannel(StaticBase, AbstractMixinTextChannel):
 
 class StaticMessage(StaticBase, AbstractMessage):
 
+    async def reply_async(self, content: str) -> 'AbstractMessage':
+        raise NotImplementedError
+
+    @property
+    def event_message_reaction_add(self) -> EventDispenser:
+        raise NotImplementedError
+
+    @property
+    async def event_message_reaction_remove(self) -> EventDispenser:
+        raise NotImplementedError
+
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClientAsync, id: str, channel_id: str, author: dict, content: str,
                  timestamp: str, edited_timestamp: str, tts: bool, mention_everyone: bool, mentions: List[dict],
@@ -137,25 +150,29 @@ class StaticMessage(StaticBase, AbstractMessage):
 
     @property
     def author_member(self) -> AbstractUser:
-        pass
+        raise NotImplementedError
 
     @property
     def parent_channel_id(self) -> str:
         return self._parent_channel_id
 
     def edit_async(self, new_content: str) -> 'AbstractMessage':
-        pass
+        raise NotImplementedError
 
     @property
     def mentioned_users(self) -> Collection['AbstractUser']:
-        pass
+        raise NotImplementedError
 
     @property
     def mentioned_members(self) -> Collection['AbstractGuildMember']:
-        pass
+        raise NotImplementedError
 
 
 class StaticDmChannel(StaticMixinTextChannel, AbstractDmChannel):
+
+    @property
+    def event_message_created(self) -> EventDispenser['StaticMessage']:
+        raise NotImplementedError
 
     # noinspection PyShadowingBuiltins
     def __init__(self, client_bind: DiscordClientAsync, id: str, type: int, last_message_id: str,
