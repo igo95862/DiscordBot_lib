@@ -211,7 +211,7 @@ class SocketThread:
             SocketEventNames.PRESENCE_UPDATE: self.event_presence_update,
             SocketEventNames.TYPING_START: self.event_typing_start,
             SocketEventNames.USER_UPDATE: self.event_user_update,
-            SocketEventNames.VOICE_STATE_UPDATE: self.event_voice_server_update,
+            SocketEventNames.VOICE_STATE_UPDATE: self.event_voice_state_update,
             SocketEventNames.VOICE_SERVER_UPDATE: self.event_voice_server_update,
             SocketEventNames.WEBHOOKS_UPDATE: self.event_webhooks_update,
         }

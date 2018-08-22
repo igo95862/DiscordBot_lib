@@ -3,6 +3,6 @@ from . import discordpermissions
 from .client import DiscordClientAsync
 from .constants import SocketEventNames
 from .constructs import CommandRealm, ReactionMenu
-from .dynamic import (GuildUnit, LinkedMember, LinkedGuildChannelText, LinkedRole, LinkedMessage)
+from .guild_unit import (GuildUnit, LinkedMember, LinkedGuildChannelText, LinkedRole, LinkedMessage, LinkedEmoji)
 from .static import (CustomEmoji)
 from .init_directives import init_guild, init_multiple_guilds

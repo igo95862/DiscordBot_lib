@@ -62,8 +62,6 @@ class StaticUser(StaticBase, AbstractUser):
         self._email = email
         self._flags = flags
 
-
-
     @property
     def username(self) -> str:
         return self._username

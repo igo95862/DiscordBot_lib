@@ -1,9 +1,10 @@
 from ..util import EventDispenser
-from ..abstract_objects import AbstractMessage, AbstractGuildRole, AbstractUser
+from ..abstract_objects import AbstractMessage, AbstractGuildRole, AbstractUser, AbstractEmoji, AbstractGuildMember
 from typing import Collection, Callable, List, Dict, Tuple, Any, Optional, Coroutine
 from shlex import split as shlex_split
 from logging import getLogger
 from ..util import wrap_if_coroutine
+from asyncio import Future, TimeoutError, Handle, Task
 
 logger = getLogger(__name__)
 
@@ -27,7 +28,7 @@ class CommandRealm:
         else:
             self.allowed_users = allowed_users
 
-        self.commands_instances: Dict[str, CommandInstance] = {}
+        self.commands_instances: Dict[str, self.CommandInstance] = {}
         self.start_pattern = start_pattern
         self.help_command = help_command
 
@@ -82,7 +83,7 @@ class CommandRealm:
             command_instance(message, *parsed_values)
 
     def add_command(self, command_name: str, action: TypeAction, description: str):
-        self.commands_instances[command_name] = CommandInstance(action, description, self)
+        self.commands_instances[command_name] = self.CommandInstance(action, description, self)
 
     async def post_help(self, message: AbstractMessage, *_):
         await message.reply_multiple_async(self.help_message)
@@ -92,17 +93,72 @@ class CommandRealm:
         descriptions = '\n'.join((f"**{k}**\t{v.description}" for k, v in self.commands_instances.items()))
         return f"Available commands: \n{descriptions}"
 
+    class CommandInstance:
 
-class CommandInstance:
+        def __init__(self, action: TypeAction, description: str, parent_realm: 'CommandRealm'):
+            self.parent_realm = parent_realm
+            self.action = wrap_if_coroutine(parent_realm.event_loop, action)
+            self.description = description
 
-    def __init__(self, action: TypeAction, description: str, parent_realm: CommandRealm):
-        self.parent_realm = parent_realm
-        self.action = wrap_if_coroutine(parent_realm.event_loop, action)
-        self.description = description
+        def __call__(self, *args, **kwargs):
+            self.action(*args, **kwargs)
 
-    def __call__(self, *args, **kwargs):
-        self.action(*args, **kwargs)
+    class ConfirmationMessage:
+        def __init__(
+                self, message_to_reply: AbstractMessage, text: str,
+                text_on_accept: str = 'Accepted...',
+                text_on_deny: str = 'Cancelled..', text_on_timeout: str = 'Timeout...',
+                confirm_emoji: str = '✅', deny_emoji: str = '❌', timeout_duration: int = 30
+        ):
+            self.message_to_reply = message_to_reply
+            self.event_loop = message_to_reply.client_bind.event_loop
+            self._future: Future = Future(loop=self.event_loop)
+            self._author = message_to_reply.author_member
+            self.text = text
+            self.text_on_accept = text_on_accept
+            self.text_on_deny = text_on_deny
+            self.text_on_timeout = text_on_timeout
+            self.confirm_emoji = confirm_emoji
+            self.deny_emoji = deny_emoji
+            self.start_task: Task = self.event_loop.create_task(self.start())
+            self.timeout_duration = timeout_duration
+            self.callback_message_reaction_add = None
+            self.callback_timeout: Handle = self.event_loop.call_later(timeout_duration, self._timeout)
+            self.last_message: AbstractMessage = None
 
+        async def start(self):
+            messages = await self.message_to_reply.reply_multiple_async(self.text)
+            self.last_message = messages[-1]
+            self.event_loop.create_task(self.last_message.add_reaction_async(self.confirm_emoji))
+            self.event_loop.create_task(self.last_message.add_reaction_async(self.deny_emoji))
+            self.callback_message_reaction_add = self.last_message.event_message_reaction_add.callback_add(
+                self._on_reaction_add)
 
+        def __await__(self):
+            return self._future.__await__()
+
+        def _on_reaction_add(self, event_data: Tuple[AbstractEmoji, AbstractUser]):
+            emoji, user = event_data
+            if user != self._author:
+                return
+
+            if emoji == self.confirm_emoji:
+                self._set_result(True)
+            elif emoji == self.deny_emoji:
+                self._set_result(False)
+
+        def _timeout(self):
+            self.callback_message_reaction_add.cancel()
+            self.event_loop.create_task(self.last_message.edit_async(self.text_on_timeout))
+            self._future.set_exception(TimeoutError())
+
+        def _set_result(self, result: bool):
+            self.callback_timeout.cancel()
+            self.callback_message_reaction_add.cancel()
+            self._future.set_result(result)
+            if result:
+                self.event_loop.create_task(self.last_message.edit_async(self.text_on_accept))
+            else:
+                self.event_loop.create_task(self.last_message.edit_async(self.text_on_deny))
 
 

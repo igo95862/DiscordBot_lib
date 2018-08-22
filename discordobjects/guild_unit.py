@@ -8,11 +8,11 @@ from weakref import ref as weak_ref, WeakValueDictionary
 from collections.abc import Mapping as AbcMapping, Iterable as AbcIterable
 
 from discordobjects.abstract_objects import AbstractUser
-from ..abstract_objects import (
+from discordobjects.abstract_objects import (
     AbstractGuildMember, AbstractGuild, AbstractGuildChannelText, AbstractMessage, AbstractEmoji, AbstractGuildRole)
-from ..client import DiscordClientAsync
-from ..static_objects import StaticDmChannel, StaticMessage, StaticUser, StaticEmoji
-from ..util import EventDispenser, SubclassedDict
+from discordobjects.client import DiscordClientAsync
+from discordobjects.static_objects import StaticDmChannel, StaticMessage, StaticUser, StaticEmoji
+from discordobjects.util import EventDispenser, SubclassedDict
 
 logger = getLogger(__name__)
 
@@ -79,79 +79,37 @@ class GuildUnit(AbstractGuild):
         self.callback_emojies_update = self.client_bind.event_guild_emoji_update.callback_add(self._on_emojies_update)
 
         self.callback_message_reaction_add = self.client_bind.event_message_reaction_add.callback_add(
-            partial(self._on_message_reaction_modify, 'event_emoji_add'))
+            partial(self._on_message_reaction_modify, 'event_reaction_add'))
         self.callback_message_reaction_remove = self.client_bind.event_message_reaction_remove.callback_add(
-            partial(self._on_message_reaction_modify, 'event_emoji_remove'))
+            partial(self._on_message_reaction_modify, 'event_reaction_remove'))
 
         # Events
-        self.event_member_joined = EventDispenser(event_loop)
+        self.event_member_joined: EventDispenser[LinkedMember] = EventDispenser(event_loop)
         self.event_member_update = EventDispenser(event_loop)
         self.event_member_removed = EventDispenser(event_loop)
         self._event_channel_message_create: Dict[str, Callable[[], EventDispenser]] = {}
+        self._on_member_roles_modify: EventDispenser = None
 
         # Mappings
-        class MemberMapping(AbcMapping):
+        self._members_mapping = MemberMapping(self)
+        self._roles_mapping = RolesMapping(self)
+        self._channels_mapping = ChannelsMapping(self)
+        self._emojis_mapping = EmojisMapping(self)
 
-            def __getitem__(_, key: Union[str, AbstractGuildMember]) -> 'LinkedMember':
-                if isinstance(key, str):
-                    user_id = key
-                elif isinstance(key, AbstractGuildMember):
-                    user_id = key.snowflake
-                else:
-                    raise TypeError(f"Expected str, AbstractGuildMember got {key.__class__}")
-
-                return LinkedMember(self, user_id)
-
-            def __len__(_) -> int:
-                return len(self._members_data)
-
-            def __iter__(_) -> Iterator[str]:
-                return iter(self._members_data)
-
-        self._members_mapping = MemberMapping()
-
-        class RolesMapping(AbcMapping):
-            def __getitem__(_, k: str) -> LinkedRole:
-                return LinkedRole(self, k)
-
-            def __len__(_) -> int:
-                return len(self.roles)
-
-            def __iter__(_) -> Iterator[str]:
-                return iter(self._roles_data)
-
-        self._roles_mapping = RolesMapping()
-
-        class ChannelsMapping(AbcMapping):
-            def __getitem__(_, k: str) -> LinkedGuildChannelText:
-                return LinkedGuildChannelText(self, k)
-
-            def __len__(_) -> int:
-                return len(self._channels_data)
-
-            def __iter__(_) -> Iterator[str]:
-                return iter(self._channels_data)
-
-        self._channels_mapping = ChannelsMapping()
-
-        class EmojisMapping(AbcMapping):
-            def __getitem__(_, k: str) -> 'LinkedEmoji':
-                return LinkedEmoji(self, self._emoji_data[k])
-
-            def __len__(_) -> int:
-                return len(self._emoji_data)
-
-            def __iter__(_) -> Iterator[str]:
-                return iter(self._emoji_data)
-
-        self._emojis_mapping = EmojisMapping()
+        # Caches
+        self._roles_cache = WeakValueDictionary()
+        self._channels_cache = WeakValueDictionary()
+        self._members_cache = WeakValueDictionary()
 
     def _on_ready(self, event_data: Dict):
         self._my_user_id = event_data['user']['id']
 
-    def _on_message_reaction_modify(self, attribute_name: str, event_data: Dict):
+    def _on_message_reaction_modify(self, key_name: str, event_data: Dict):
         guild_id = event_data['guild_id']
         if guild_id != self.snowflake:
+            return
+
+        if event_data['user_id'] == self._my_user_id:
             return
 
         channel_id = event_data['channel_id']
@@ -161,13 +119,12 @@ class GuildUnit(AbstractGuild):
         except KeyError:
             return
 
-        emoji = StaticEmoji(**event_data['emoji'])
-
         try:
-            event_dispenser: EventDispenser = getattr(message_data, attribute_name)
-        except AttributeError:
+            event_dispenser: EventDispenser = message_data[key_name]
+        except KeyError:
             return
 
+        emoji = StaticEmoji(**event_data['emoji'])
         event_dispenser.put((emoji, self.members[event_data['user_id']]))
 
     # region Member events callbacks
@@ -183,10 +140,20 @@ class GuildUnit(AbstractGuild):
         if guild_id == self._guild_id:
             user_id = event_data['user']['id']
             member_dict = self._members_data[user_id]
-            member_dict['roles'] = event_data['roles']
+            old_roles_ids_list = member_dict['roles']
+            new_roles_ids_list = event_data['roles']
+            member_dict['roles'] = new_roles_ids_list
             member_dict['user'] = event_data['user']
             member_dict['nick'] = event_data['nick']
             self.event_member_update.put(LinkedMember(self, user_id))
+
+            if self._on_member_roles_modify is not None:
+                old_roles_ids_set = set(old_roles_ids_list)
+                new_roles_ids_set = set(new_roles_ids_list)
+                self._on_member_roles_modify.put(
+                    (self.members[user_id],
+                     tuple((self.roles[x] for x in new_roles_ids_set - old_roles_ids_set)),
+                     tuple((self.roles[x] for x in old_roles_ids_set - new_roles_ids_set ))))
 
     def _on_member_remove(self, event_data: Dict):
         guild_id = event_data['guild_id']
@@ -210,6 +177,8 @@ class GuildUnit(AbstractGuild):
         if guild_id == self._guild_id:
             role_id = event_data['role']['id']
             self._roles_data[role_id].update(event_data['role'])
+
+
 
     def _on_role_remove(self, event_data: Dict):
         guild_id = event_data['guild_id']
@@ -265,7 +234,7 @@ class GuildUnit(AbstractGuild):
     def _populate_emoji(self, emoji_list: List[Dict]):
         self._emoji_data = {x['id']: DataDict(x) for x in emoji_list}
 
-    def _add_linked_message_data(self, channel_id: str, message_dict: dict) -> SubclassedDict:
+    def _add_linked_message_data(self, channel_id: str, message_dict: dict) -> DataDict:
         message_id = message_dict['id']
         try:
             channel_messages_data = self._message_data[channel_id]
@@ -273,12 +242,23 @@ class GuildUnit(AbstractGuild):
             channel_messages_data = WeakValueDictionary()
             self._message_data[channel_id] = channel_messages_data
 
-        message_data = SubclassedDict(message_dict)
+        message_data = DataDict(message_dict)
         channel_messages_data[message_id] = message_data
         return message_data
 
     async def reload(self):
         raise NotImplementedError
+
+    @property
+    def on_member_roles_modify(self) -> EventDispenser[Tuple['LinkedMember',
+                                                             Tuple['LinkedRole', ...],
+                                                             Tuple['LinkedRole', ...]]]:
+        if self._on_member_roles_modify is None:
+            new_dispencer = EventDispenser(self.event_loop)
+            self._on_member_roles_modify = new_dispencer
+            return new_dispencer
+        else:
+            return self._on_member_roles_modify
 
     def __await__(self):
         return self.is_initialized.__await__()
@@ -289,6 +269,74 @@ class GuildUnit(AbstractGuild):
 
     def __contains__(self, item: AbstractUser):
         return item.snowflake in self._members_data
+
+
+class MemberMapping(AbcMapping):
+    def __init__(self, parent_unit: GuildUnit):
+        self.parent = parent_unit
+
+    def __getitem__(self, key: Union[str, AbstractGuildMember]) -> 'LinkedMember':
+        if isinstance(key, str):
+            user_id = key
+        elif isinstance(key, AbstractUser):
+            user_id = key.snowflake
+        else:
+            raise TypeError(f"Expected str, AbstractGuildMember got {key.__class__}")
+
+        return LinkedMember(self.parent, user_id)
+
+    def __len__(self) -> int:
+        return len(self.parent._members_data)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.parent._members_data)
+
+
+class RolesMapping(AbcMapping):
+    def __init__(self, parent_unit: GuildUnit):
+        self.parent = parent_unit
+
+    def __getitem__(self, k: str) -> 'LinkedRole':
+        try:
+            return self.parent._roles_cache[k]
+        except KeyError:
+            new_linked_role = LinkedRole(self.parent, k)
+            self.parent._roles_cache[k] = new_linked_role
+            return new_linked_role
+
+    def __len__(self) -> int:
+        return len(self.parent._roles_data)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.parent._roles_data)
+
+
+class ChannelsMapping(AbcMapping):
+    def __init__(self, parent_unit: GuildUnit):
+        self.parent = parent_unit
+
+    def __getitem__(self, k: str) -> 'LinkedGuildChannelText':
+        return LinkedGuildChannelText(self.parent, k)
+
+    def __len__(self) -> int:
+        return len(self.parent._channels_data)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.parent._channels_data)
+
+
+class EmojisMapping(AbcMapping):
+    def __init__(self, parent_unit: GuildUnit):
+        self.parent = parent_unit
+
+    def __getitem__(self, k: str) -> 'LinkedEmoji':
+        return LinkedEmoji(self.parent, self.parent._emoji_data[k])
+
+    def __len__(self) -> int:
+        return len(self.parent._emoji_data)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.parent._emoji_data)
 
 
 class BaseLinked:
@@ -307,7 +355,7 @@ class LinkedMember(BaseLinked, AbstractGuildMember):
 
     @property
     def discriminator(self) -> str:
-        return self._member_data['user']['username']
+        return self._member_data['user']['discriminator']
 
     @property
     def avatar_hash(self) -> str:
@@ -328,13 +376,7 @@ class LinkedMember(BaseLinked, AbstractGuildMember):
         self._member_id = member_id
         self._member_data = parent_unit._members_data[member_id]
         super().__init__(parent_unit)
-
-        class RolesIterable(AbcIterable):
-            def __iter__(_) -> Iterator[LinkedRole]:
-                for role_id in self.role_ids:
-                    yield self.parent_unit.roles[role_id]
-
-        self._role_iterable = RolesIterable()
+        self._role_iterable = RolesIterable(self)
 
     @property
     def roles(self):
@@ -358,6 +400,15 @@ class LinkedMember(BaseLinked, AbstractGuildMember):
         current_roles_set = set(self.role_ids)
         new_roles = list(current_roles_set - subtract_roles_set | add_roles_set)
         await self.client_bind.guild_member_modify(self.parent_unit.snowflake, self.snowflake, new_roles=new_roles)
+
+
+class RolesIterable(AbcIterable):
+    def __init__(self, parent: LinkedMember):
+        self.parent = parent
+
+    def __iter__(self) -> Iterator['LinkedRole']:
+        for role_id in self.parent.role_ids:
+            yield self.parent.parent_unit.roles[role_id]
 
 
 class LinkedRole(BaseLinked, AbstractGuildRole):
@@ -449,8 +500,9 @@ class LinkedGuildChannelText(BaseLinked, AbstractGuildChannelText):
     async def get_last_message(self):
         raise NotImplementedError
 
-    async def message_iter_async_gen(self) -> AsyncGenerator['StaticMessage', None]:
-        raise NotImplementedError
+    async def message_iter_async_gen(self) -> AsyncGenerator['LinkedMessage', None]:
+        async for message_dict in self.client_bind.channel_message_iter(self.snowflake):
+            yield LinkedMessage(self, self.parent_unit._add_linked_message_data(self.snowflake, message_dict))
 
     async def post_single_message_async(self, content: str, files: Tuple[str, bytes] = None) -> 'LinkedMessage':
         message_dict = await self.client_bind.channel_message_create(self.snowflake, content)
@@ -484,10 +536,14 @@ class LinkedMessage(AbstractMessage):
     async def reply_async(self, content: str) -> 'LinkedMessage':
         return await self._parent_channel.post_single_message_async(content)
 
-    def __init__(self, parent_channel: LinkedGuildChannelText, message_data: SubclassedDict):
+    def __init__(self, parent_channel: LinkedGuildChannelText, message_data: DataDict):
         self._parent_channel = parent_channel
         self._message_data = message_data
         self._client_bind = parent_channel.client_bind
+        self._event_reaction_add = None
+        self._event_reaction_add_cb = None
+        self._event_reaction_remove = None
+        self._event_reaction_remove_cb = None
 
     @property
     def content(self) -> str:
@@ -528,21 +584,69 @@ class LinkedMessage(AbstractMessage):
         return self._client_bind
 
     @property
-    def event_message_reaction_add(self) -> EventDispenser[Tuple[LinkedMember, StaticEmoji]]:
+    def event_message_reaction_add(self) -> EventDispenser[Tuple[StaticEmoji, LinkedMember]]:
+        if self._event_reaction_add is None:
+            self._event_reaction_add = EventDispenser(self.client_bind.event_loop)
+
+            def reaction_hook(event_data: Dict):
+                channel_id = event_data['channel_id']
+                if channel_id != self.parent_channel_id:
+                    return
+
+                message_id = event_data['message_id']
+                if message_id != self.snowflake:
+                    return
+
+                if event_data['user_id'] == self._parent_channel.parent_unit._my_user_id:
+                    return
+
+                emoji = StaticEmoji(**event_data['emoji'])
+                self._event_reaction_add.put((emoji, self._parent_channel.parent_unit.members[event_data['user_id']]))
+
+            self._event_reaction_add_cb = self.client_bind.event_message_reaction_add.callback_add(reaction_hook)
+
+        return self._event_reaction_add
+
+    @property
+    def event_message_reaction_remove(self) -> EventDispenser[Tuple[StaticEmoji, LinkedMember]]:
+        if self._event_reaction_remove is None:
+            self._event_reaction_remove = EventDispenser(self.client_bind.event_loop)
+
+            def reaction_hook(event_data: Dict):
+                channel_id = event_data['channel_id']
+                if channel_id != self.parent_channel_id:
+                    return
+
+                message_id = event_data['message_id']
+                if message_id != self.snowflake:
+                    return
+
+                if event_data['user_id'] == self._parent_channel.parent_unit._my_user_id:
+                    return
+
+                emoji = StaticEmoji(**event_data['emoji'])
+                self._event_reaction_remove.put((emoji, self._parent_channel.parent_unit.members[event_data['user_id']]))
+
+            self._event_reaction_remove_cb = self.client_bind.event_message_reaction_remove.callback_add(reaction_hook)
+
+        return self._event_reaction_remove
+
+    @property
+    def event_message_reaction_add2(self) -> EventDispenser[Tuple[StaticEmoji, LinkedMember]]:
         try:
-            return self._message_data.event_emoji_add
-        except AttributeError:
-            new_dispenser = EventDispenser(self._parent_channel.parent_unit.event_loop)
-            self._message_data.event_emoji_add = new_dispenser
+            return self._message_data['event_reaction_add']
+        except KeyError:
+            new_dispenser = EventDispenser(self.client_bind.event_loop)
+            self._message_data['event_reaction_add'] = new_dispenser
             return new_dispenser
 
     @property
-    def event_message_reaction_remove(self) -> EventDispenser[Tuple[LinkedMember, StaticEmoji]]:
+    def event_message_reaction_remove2(self) -> EventDispenser[Tuple[StaticEmoji, LinkedMember]]:
         try:
-            return self._message_data.event_emoji_remove
-        except AttributeError:
-            new_dispenser = EventDispenser(self._parent_channel.parent_unit.event_loop)
-            self._message_data.event_emoji_remove = new_dispenser
+            return self._message_data['event_reaction_remove']
+        except KeyError:
+            new_dispenser = EventDispenser(self.client_bind.event_loop)
+            self._message_data['event_reaction_remove'] = new_dispenser
             return new_dispenser
 
 
