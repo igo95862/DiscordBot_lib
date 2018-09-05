@@ -2,14 +2,15 @@ from asyncio import Future, AbstractEventLoop
 from functools import partial
 from logging import getLogger
 from typing import (Dict, List, Mapping, Union, Iterator, Tuple, AsyncGenerator, Type, Callable, Collection, Optional,
-                    Iterable)
+                    Iterable, TypeVar, Generic)
 from weakref import ref as weak_ref, WeakValueDictionary
 
 from collections.abc import Mapping as AbcMapping, Iterable as AbcIterable
 
 from discordobjects.abstract_objects import AbstractUser
 from discordobjects.abstract_objects import (
-    AbstractGuildMember, AbstractGuild, AbstractGuildChannelText, AbstractMessage, AbstractEmoji, AbstractGuildRole)
+    AbstractGuildMember, AbstractGuild, AbstractGuildChannelText, AbstractGuildChannel, AbstractMessage, AbstractEmoji,
+    AbstractGuildRole)
 from discordobjects.client import DiscordClientAsync
 from discordobjects.static_objects import StaticDmChannel, StaticMessage, StaticUser, StaticEmoji
 from discordobjects.util import EventDispenser, SubclassedDict
@@ -93,7 +94,7 @@ class GuildUnit(AbstractGuild):
         # Mappings
         self._members_mapping = MemberMapping(self)
         self._roles_mapping = RolesMapping(self)
-        self._channels_mapping = ChannelsMapping(self)
+        self._channels_mapping = ChannelsMappingText(self)
         self._emojis_mapping = EmojisMapping(self)
 
         # Caches
@@ -310,19 +311,30 @@ class RolesMapping(AbcMapping):
     def __iter__(self) -> Iterator[str]:
         return iter(self.parent._roles_data)
 
+TypeMappingGeneric = Generic('TypeMappingGeneric')
 
-class ChannelsMapping(AbcMapping):
-    def __init__(self, parent_unit: GuildUnit):
+class ChannelsMappingAbstract(AbcMapping):
+    def __init__(self, parent_unit: GuildUnit, channel_class: Type[TypeMappingGeneric]):
         self.parent = parent_unit
+        self.channel_class = channel_class
 
-    def __getitem__(self, k: str) -> 'LinkedGuildChannelText':
-        return LinkedGuildChannelText(self.parent, k)
+    def __getitem__(self, k: str) -> TypeMappingGeneric:
+        return self.channel_class(self.parent, k)
 
     def __len__(self) -> int:
         return len(self.parent._channels_data)
 
     def __iter__(self) -> Iterator[str]:
         return iter(self.parent._channels_data)
+
+
+class ChannelsMappingText(ChannelsMappingAbstract):
+
+    def __init__(self, parent_unit: GuildUnit):
+        super().__init__(parent_unit, LinkedGuildChannelText)
+
+
+
 
 
 class EmojisMapping(AbcMapping):
