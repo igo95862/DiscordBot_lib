@@ -292,6 +292,11 @@ class AbstractGuild(AbstractBase):
 
     @property
     @abstractmethod
+    def emoji(self) -> Mapping[str, 'AbstractEmoji']:
+        ...
+
+    @property
+    @abstractmethod
     def roles(self) -> Mapping[str, 'AbstractGuildRole']:
         ...
 
@@ -302,7 +307,17 @@ class AbstractGuild(AbstractBase):
 
     @property
     @abstractmethod
-    def channels(self) -> Mapping[str, 'AbstractGuildMember']:
+    def text_channels(self) -> Mapping[str, 'AbstractGuildChannelText']:
+        ...
+
+    @property
+    @abstractmethod
+    def voice_channels(self) -> Mapping[str, 'AbstractGuildChannelVoice']:
+        ...
+
+    @property
+    @abstractmethod
+    def category_channels(self) -> Mapping[str, 'AbstractGuildChannelCategory']:
         ...
 
 
@@ -368,8 +383,14 @@ class AbstractGuildMember(AbstractUser):
 
 
 class AbstractGuildChannel(AbstractChannel):
+    @property
+    @abstractmethod
+    def guild_id(self) -> str:
+        ...
 
-    async def edit_permission(self, subject: Union[AbstractUser, AbstractGuildRole], ):
+    async def edit_permission_async(
+            self, subject: Union[AbstractUser, AbstractGuildRole], allow_permissions: int, deny_permissions: int):
+
         if isinstance(subject, AbstractUser):
             subject_type = 'member'
         elif isinstance(subject, AbstractGuildRole):
@@ -378,7 +399,8 @@ class AbstractGuildChannel(AbstractChannel):
             raise TypeError(f"edit_permission called with wrong type. Got {subject.__class__},"
                             f" expected {Union[AbstractUser, AbstractGuildRole]}")
 
-        await self.client_bind.channel_permissions_overwrite_edit(self.snowflake, subject.snowflake, 0, 0, subject_type)
+        await self.client_bind.channel_permissions_overwrite_edit(self.snowflake, subject.snowflake,
+                                                                  allow_permissions, deny_permissions, subject_type)
 
 
 class AbstractGuildChannelCategory(AbstractGuildChannel):
@@ -390,5 +412,7 @@ class AbstractGuildChannelText(AbstractGuildChannel, AbstractMixinTextChannel):
 
 
 class AbstractGuildChannelVoice(AbstractGuildChannel, AbstractMixinVoiceChannel):
-    pass
+
+    async def move_member_to_async(self, member: AbstractGuildMember):
+        await self.client_bind.guild_member_modify(self.guild_id, member.snowflake,new_channel_id=self.snowflake)
 

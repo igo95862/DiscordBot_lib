@@ -2,18 +2,18 @@ from asyncio import Future, AbstractEventLoop
 from functools import partial
 from logging import getLogger
 from typing import (Dict, List, Mapping, Union, Iterator, Tuple, AsyncGenerator, Type, Callable, Collection, Optional,
-                    Iterable, TypeVar, Generic)
+                    Iterable, )
 from weakref import ref as weak_ref, WeakValueDictionary
 
-from collections.abc import Mapping as AbcMapping, Iterable as AbcIterable
 
 from discordobjects.abstract_objects import AbstractUser
 from discordobjects.abstract_objects import (
-    AbstractGuildMember, AbstractGuild, AbstractGuildChannelText, AbstractGuildChannel, AbstractMessage, AbstractEmoji,
-    AbstractGuildRole)
+    AbstractGuildMember, AbstractGuild, AbstractGuildChannelText, AbstractMessage, AbstractEmoji,
+    AbstractGuildRole, AbstractGuildChannelVoice, AbstractGuildChannelCategory)
 from discordobjects.client import DiscordClientAsync
 from discordobjects.static_objects import StaticDmChannel, StaticMessage, StaticUser, StaticEmoji
-from discordobjects.util import EventDispenser, SubclassedDict
+from .util import EventDispenser, SubclassedDict, MappingDictCached
+from .voice_state_manager import VoiceStateManager
 
 logger = getLogger(__name__)
 
@@ -27,6 +27,18 @@ class DataDict(SubclassedDict):
 class GuildUnit(AbstractGuild):
 
     @property
+    def emoji(self) -> Mapping[str, 'AbstractEmoji']:
+        return self._emojis_mapping
+
+    @property
+    def voice_channels(self) -> Mapping[str, 'LinkedGuildChannelVoice']:
+        return self._voice_channels_mapping
+
+    @property
+    def category_channels(self) -> Mapping[str, 'LinkedGuildChannelCategory']:
+        return self._category_channels_mapping
+
+    @property
     def roles(self) -> Mapping[str, 'LinkedRole']:
         return self._roles_mapping
 
@@ -35,12 +47,8 @@ class GuildUnit(AbstractGuild):
         return self._members_mapping
 
     @property
-    def channels(self) -> Mapping[str, 'LinkedGuildChannelText']:
-        return self._channels_mapping
-
-    @property
-    def emojis(self) -> Mapping[str, 'LinkedEmoji']:
-        return self._emojis_mapping
+    def text_channels(self) -> Mapping[str, 'LinkedGuildChannelText']:
+        return self._text_channels_mapping
 
     @property
     def snowflake(self) -> str:
@@ -63,7 +71,7 @@ class GuildUnit(AbstractGuild):
         self._voice_states_data: Dict[str, Dict] = {}
         self._guild_data: Dict[str, Dict] = {}
         self._emoji_data: Dict[str, DataDict] = {}
-        self._message_data: Dict[str, WeakValueDictionary[SubclassedDict]] = {}
+        self._message_data: Dict[str, Dict[str, SubclassedDict]] = {}
         self.is_initialized: Future = Future(loop=event_loop)
 
         # Callbacks
@@ -92,15 +100,15 @@ class GuildUnit(AbstractGuild):
         self._on_member_roles_modify: EventDispenser = None
 
         # Mappings
-        self._members_mapping = MemberMapping(self)
-        self._roles_mapping = RolesMapping(self)
-        self._channels_mapping = ChannelsMappingText(self)
-        self._emojis_mapping = EmojisMapping(self)
+        self._members_mapping = MappingDictCached(self, '_members_data', LinkedMember)
+        self._roles_mapping = MappingDictCached(self, '_roles_data', LinkedRole)
+        self._text_channels_mapping = MappingDictCached(self, '_channels_data', LinkedGuildChannelText)
+        self._voice_channels_mapping = MappingDictCached(self, '_channels_data', LinkedGuildChannelVoice)
+        self._category_channels_mapping = MappingDictCached(self, '_channels_data', LinkedGuildChannelCategory)
+        self._emojis_mapping = MappingDictCached(self, '_emoji_data', LinkedEmoji)
 
-        # Caches
-        self._roles_cache = WeakValueDictionary()
-        self._channels_cache = WeakValueDictionary()
-        self._members_cache = WeakValueDictionary()
+        self._voice_state_manager = VoiceStateManager(client)
+
 
     def _on_ready(self, event_data: Dict):
         self._my_user_id = event_data['user']['id']
@@ -134,7 +142,7 @@ class GuildUnit(AbstractGuild):
         if guild_id == self._guild_id:
             user_id = event_data['user']['id']
             self._members_data[user_id] = DataDict(event_data)
-            self.event_member_joined.put(LinkedMember(self, user_id))
+            self.event_member_joined.put(LinkedMember(self, event_data, user_id))
 
     def _on_member_update(self, event_data: Dict):
         guild_id = event_data['guild_id']
@@ -146,7 +154,7 @@ class GuildUnit(AbstractGuild):
             member_dict['roles'] = new_roles_ids_list
             member_dict['user'] = event_data['user']
             member_dict['nick'] = event_data['nick']
-            self.event_member_update.put(LinkedMember(self, user_id))
+            self.event_member_update.put(LinkedMember(self, event_data, user_id))
 
             if self._on_member_roles_modify is not None:
                 old_roles_ids_set = set(old_roles_ids_list)
@@ -161,7 +169,7 @@ class GuildUnit(AbstractGuild):
         if guild_id == self._guild_id:
             user_id = event_data['user']['id']
             self._members_data.pop(user_id)
-            self.event_member_removed.put(LinkedMember(self, user_id))
+            self.event_member_removed.put(LinkedMember(self, event_data, user_id))
 
     # endregion
 
@@ -178,7 +186,6 @@ class GuildUnit(AbstractGuild):
         if guild_id == self._guild_id:
             role_id = event_data['role']['id']
             self._roles_data[role_id].update(event_data['role'])
-
 
 
     def _on_role_remove(self, event_data: Dict):
@@ -272,127 +279,50 @@ class GuildUnit(AbstractGuild):
         return item.snowflake in self._members_data
 
 
-class MemberMapping(AbcMapping):
-    def __init__(self, parent_unit: GuildUnit):
-        self.parent = parent_unit
-
-    def __getitem__(self, key: Union[str, AbstractGuildMember]) -> 'LinkedMember':
-        if isinstance(key, str):
-            user_id = key
-        elif isinstance(key, AbstractUser):
-            user_id = key.snowflake
-        else:
-            raise TypeError(f"Expected str, AbstractGuildMember got {key.__class__}")
-
-        return LinkedMember(self.parent, user_id)
-
-    def __len__(self) -> int:
-        return len(self.parent._members_data)
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.parent._members_data)
-
-
-class RolesMapping(AbcMapping):
-    def __init__(self, parent_unit: GuildUnit):
-        self.parent = parent_unit
-
-    def __getitem__(self, k: str) -> 'LinkedRole':
-        try:
-            return self.parent._roles_cache[k]
-        except KeyError:
-            new_linked_role = LinkedRole(self.parent, k)
-            self.parent._roles_cache[k] = new_linked_role
-            return new_linked_role
-
-    def __len__(self) -> int:
-        return len(self.parent._roles_data)
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.parent._roles_data)
-
-TypeMappingGeneric = Generic('TypeMappingGeneric')
-
-class ChannelsMappingAbstract(AbcMapping):
-    def __init__(self, parent_unit: GuildUnit, channel_class: Type[TypeMappingGeneric]):
-        self.parent = parent_unit
-        self.channel_class = channel_class
-
-    def __getitem__(self, k: str) -> TypeMappingGeneric:
-        return self.channel_class(self.parent, k)
-
-    def __len__(self) -> int:
-        return len(self.parent._channels_data)
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.parent._channels_data)
-
-
-class ChannelsMappingText(ChannelsMappingAbstract):
-
-    def __init__(self, parent_unit: GuildUnit):
-        super().__init__(parent_unit, LinkedGuildChannelText)
 
 
 
 
 
-class EmojisMapping(AbcMapping):
-    def __init__(self, parent_unit: GuildUnit):
-        self.parent = parent_unit
-
-    def __getitem__(self, k: str) -> 'LinkedEmoji':
-        return LinkedEmoji(self.parent, self.parent._emoji_data[k])
-
-    def __len__(self) -> int:
-        return len(self.parent._emoji_data)
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self.parent._emoji_data)
 
 
 class BaseLinked:
-    def __init__(self, parent_unit: GuildUnit):
-        self.parent_unit = parent_unit
+    def __init__(self, guild_unit: GuildUnit, data_dict: dict, snowflake: str):
+        self._data_dict = data_dict
+        self._snowflake = snowflake
+        self._parent_unit = guild_unit
 
 
 class LinkedMember(BaseLinked, AbstractGuildMember):
     @property
     def role_ids(self) -> List[str]:
-        return self._member_data['roles']
+        return self._data_dict['roles']
 
     @property
     def username(self) -> str:
-        return self._member_data['user']['username']
+        return self._data_dict['user']['username']
 
     @property
     def discriminator(self) -> str:
-        return self._member_data['user']['discriminator']
+        return self._data_dict['user']['discriminator']
 
     @property
     def avatar_hash(self) -> str:
-        return self._member_data['user']['avatar']
+        return self._data_dict['user']['avatar']
 
     async def dm_open_async(self) -> StaticDmChannel:
-        return await StaticDmChannel.load_async(self.client_bind, self._member_id)
+        return await StaticDmChannel.load_async(self.client_bind, self._snowflake)
 
     @property
     def snowflake(self) -> str:
-        return self._member_id
+        return self._snowflake
 
     @property
     def client_bind(self) -> DiscordClientAsync:
-        return self.parent_unit.client_bind
+        return self._parent_unit.client_bind
 
-    def __init__(self, parent_unit: GuildUnit, member_id: str):
-        self._member_id = member_id
-        self._member_data = parent_unit._members_data[member_id]
-        super().__init__(parent_unit)
-        self._role_iterable = RolesIterable(self)
-
-    @property
-    def roles(self):
-        return self._role_iterable
+    def roles(self) -> Iterator['LinkedRole']:
+        return iter((self._parent_unit.roles[x] for x in self.role_ids))
 
     async def roles_modify_async(
             self, *args, add_roles: Iterable[Union[str, AbstractGuildRole]] = None,
@@ -411,78 +341,68 @@ class LinkedMember(BaseLinked, AbstractGuildMember):
 
         current_roles_set = set(self.role_ids)
         new_roles = list(current_roles_set - subtract_roles_set | add_roles_set)
-        await self.client_bind.guild_member_modify(self.parent_unit.snowflake, self.snowflake, new_roles=new_roles)
-
-
-class RolesIterable(AbcIterable):
-    def __init__(self, parent: LinkedMember):
-        self.parent = parent
-
-    def __iter__(self) -> Iterator['LinkedRole']:
-        for role_id in self.parent.role_ids:
-            yield self.parent.parent_unit.roles[role_id]
+        await self.client_bind.guild_member_modify(self._parent_unit.snowflake, self.snowflake, new_roles=new_roles)
 
 
 class LinkedRole(BaseLinked, AbstractGuildRole):
     @property
     def role_name(self) -> str:
-        return self._role_data['name']
+        return self._data_dict['name']
 
     @property
     def role_color(self) -> int:
-        return self._role_data['color']
+        return self._data_dict['color']
 
     @property
     def display_separately(self) -> bool:
-        return self._role_data['mentionable']
+        return self._data_dict['mentionable']
 
     @property
     def position(self) -> int:
-        return self._role_data['position']
+        return self._data_dict['position']
 
     @property
     def permissions_int(self) -> int:
-        return self._role_data['permissions']
+        return self._data_dict['permissions']
 
     @property
     def is_managed(self) -> bool:
-        return self._role_data['managed']
+        return self._data_dict['managed']
 
     @property
     def is_mentionable(self) -> bool:
-        return self._role_data['mentionable']
+        return self._data_dict['mentionable']
 
     @property
     def parent_guild_id(self) -> str:
-        return self.parent_unit.snowflake
+        return self._parent_unit.snowflake
 
     @property
     def snowflake(self) -> str:
-        return self.role_id
+        return self._snowflake
 
     @property
     def client_bind(self) -> DiscordClientAsync:
-        return self.parent_unit.client_bind
-
-    def __init__(self, parent_unit: GuildUnit, role_id: str):
-        self.role_id = role_id
-        self._role_data = parent_unit._roles_data[role_id]
-        super().__init__(parent_unit)
+        return self._parent_unit.client_bind
 
 
 class LinkedGuildChannelText(BaseLinked, AbstractGuildChannelText):
     @property
+    def guild_id(self) -> str:
+        return self._parent_unit.snowflake
+
+    @property
     def event_message_created(self) -> EventDispenser[StaticMessage]:
         try:
-            old_dispenser = self.parent_unit._event_channel_message_create[self.snowflake]()
+            old_dispenser = self._parent_unit._event_channel_message_create[self.snowflake]()
             return old_dispenser
         except KeyError:
             pass
 
-        new_dispenser = EventDispenser(self.parent_unit.event_loop)
+        new_dispenser = EventDispenser(self._parent_unit.event_loop)
 
         def clean_up():
-            self.parent_unit._event_channel_message_create.pop(self.snowflake)
+            self._parent_unit._event_channel_message_create.pop(self.snowflake)
 
         def new_hook(message_dict: dict):
             if message_dict['channel_id'] == self.snowflake:
@@ -497,12 +417,12 @@ class LinkedGuildChannelText(BaseLinked, AbstractGuildChannelText):
                 message_data = SubclassedDict(message_dict)
                 channel_messages_data[message_id] = message_data
                 '''
-                message_data = self.parent_unit._add_linked_message_data(self.snowflake, message_dict)
+                message_data = self._parent_unit._add_linked_message_data(self.snowflake, message_dict)
                 new_dispenser.put(LinkedMessage(self, message_data))
 
         new_dispenser.hook = new_hook
         self.client_bind.event_message_create.callback_add(new_hook)
-        self.parent_unit._event_channel_message_create[self.snowflake] = weak_ref(new_dispenser, clean_up)
+        self._parent_unit._event_channel_message_create[self.snowflake] = weak_ref(new_dispenser, clean_up)
         return new_dispenser
 
     @property
@@ -514,11 +434,11 @@ class LinkedGuildChannelText(BaseLinked, AbstractGuildChannelText):
 
     async def message_iter_async_gen(self) -> AsyncGenerator['LinkedMessage', None]:
         async for message_dict in self.client_bind.channel_message_iter(self.snowflake):
-            yield LinkedMessage(self, self.parent_unit._add_linked_message_data(self.snowflake, message_dict))
+            yield LinkedMessage(self, self._parent_unit._add_linked_message_data(self.snowflake, message_dict))
 
     async def post_single_message_async(self, content: str, files: Tuple[str, bytes] = None) -> 'LinkedMessage':
         message_dict = await self.client_bind.channel_message_create(self.snowflake, content)
-        message_data = self.parent_unit._add_linked_message_data(self.snowflake, message_dict)
+        message_data = self._parent_unit._add_linked_message_data(self.snowflake, message_dict)
         return LinkedMessage(self, message_data)
 
     @property
@@ -527,20 +447,18 @@ class LinkedGuildChannelText(BaseLinked, AbstractGuildChannelText):
 
     @property
     def snowflake(self) -> str:
-        return self.channel_id
+        return self._snowflake
 
     @property
     def client_bind(self) -> DiscordClientAsync:
-        return self.parent_unit.client_bind
+        return self._parent_unit.client_bind
 
-    def __init__(self, parent_unit: GuildUnit, channel_id: str):
-        self.channel_id = channel_id
-        self._channel_data = parent_unit._channels_data[channel_id]
-        super().__init__(parent_unit)
+    def __init__(self, guild_unit: GuildUnit, data_dict: dict, snowflake: str):
+        super().__init__(guild_unit, data_dict, snowflake)
 
     async def load_message_async(self, message_id: str):
         message_dict = await self.client_bind.channel_message_get(self.snowflake, message_id)
-        message_data = self.parent_unit._add_linked_message_data(self.snowflake, message_dict)
+        message_data = self._parent_unit._add_linked_message_data(self.snowflake, message_dict)
         return LinkedMessage(self, message_data)
 
 
@@ -568,7 +486,7 @@ class LinkedMessage(AbstractMessage):
     @property
     def author_member(self) -> LinkedMember:
         author_id = self._message_data['author']['id']
-        return self._parent_channel.parent_unit.members[author_id]
+        return self._parent_channel._parent_unit.members[author_id]
 
     @property
     def parent_channel_id(self) -> str:
@@ -585,7 +503,7 @@ class LinkedMessage(AbstractMessage):
 
     @property
     def mentioned_members(self) -> Collection['LinkedMember']:
-        return [self._parent_channel.parent_unit.members[x['id']] for x in self._message_data['mentions']]
+        return [self._parent_channel._parent_unit.members[x['id']] for x in self._message_data['mentions']]
 
     @property
     def snowflake(self) -> str:
@@ -609,11 +527,11 @@ class LinkedMessage(AbstractMessage):
                 if message_id != self.snowflake:
                     return
 
-                if event_data['user_id'] == self._parent_channel.parent_unit._my_user_id:
+                if event_data['user_id'] == self._parent_channel._parent_unit._my_user_id:
                     return
 
                 emoji = StaticEmoji(**event_data['emoji'])
-                self._event_reaction_add.put((emoji, self._parent_channel.parent_unit.members[event_data['user_id']]))
+                self._event_reaction_add.put((emoji, self._parent_channel._parent_unit.members[event_data['user_id']]))
 
             self._event_reaction_add_cb = self.client_bind.event_message_reaction_add.callback_add(reaction_hook)
 
@@ -633,11 +551,11 @@ class LinkedMessage(AbstractMessage):
                 if message_id != self.snowflake:
                     return
 
-                if event_data['user_id'] == self._parent_channel.parent_unit._my_user_id:
+                if event_data['user_id'] == self._parent_channel._parent_unit._my_user_id:
                     return
 
                 emoji = StaticEmoji(**event_data['emoji'])
-                self._event_reaction_remove.put((emoji, self._parent_channel.parent_unit.members[event_data['user_id']]))
+                self._event_reaction_remove.put((emoji, self._parent_channel._parent_unit.members[event_data['user_id']]))
 
             self._event_reaction_remove_cb = self.client_bind.event_message_reaction_remove.callback_add(reaction_hook)
 
@@ -678,3 +596,54 @@ class LinkedEmoji(AbstractEmoji):
     @property
     def is_animated(self) -> bool:
         return self._emoji_data['animated']
+
+class LinkedGuildChannelVoice(BaseLinked, AbstractGuildChannelVoice):
+
+    @property
+    def guild_id(self) -> str:
+        return self._parent_unit.snowflake
+
+    @property
+    def type_int(self) -> int:
+        return self._data_dict['type']
+
+    @property
+    def snowflake(self) -> str:
+        return self._snowflake
+
+    @property
+    def client_bind(self) -> DiscordClientAsync:
+        return self._parent_unit.client_bind
+
+    def __init__(self, guild_unit: GuildUnit, data_dict: dict, snowflake: str):
+        super().__init__(guild_unit, data_dict, snowflake)
+        self.event_member_joined: EventDispenser[LinkedMember] = EventDispenser(guild_unit.event_loop)
+        self._event_voice_state_changed_callback = (
+            guild_unit._voice_state_manager.event_voice_channel_changed.callback_add(self._on_voice_state_changed))
+        self.event_member_left: EventDispenser[LinkedMember] = EventDispenser(guild_unit.event_loop)
+
+    def _on_voice_state_changed(self, event_data: tuple):
+        user_id, old_channel_id, new_channel_id = event_data
+        if new_channel_id == self._snowflake:
+            self.event_member_joined.put(self._parent_unit.members[user_id])
+
+        if old_channel_id == self._snowflake:
+            self.event_member_left.put(self._parent_unit.members[user_id])
+
+
+class LinkedGuildChannelCategory(BaseLinked, AbstractGuildChannelCategory):
+    @property
+    def guild_id(self) -> str:
+        return self._parent_unit.snowflake
+
+    @property
+    def type_int(self) -> int:
+        return self._data_dict['type']
+
+    @property
+    def snowflake(self) -> str:
+        return self._snowflake
+
+    @property
+    def client_bind(self) -> DiscordClientAsync:
+        return self._parent_unit.client_bind
