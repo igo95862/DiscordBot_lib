@@ -4,7 +4,7 @@ import logging
 from discordobjects.util import EventDispenser
 from .client import DiscordClientAsync
 from .abstract_objects import (AbstractBase, AbstractUser, AbstractMixinTextChannel, AbstractMessage,
-                               AbstractDmChannel, AbstractEmoji)
+                               AbstractDmChannel, AbstractEmoji, AbstractGuildMember)
 
 
 extra_keys_dict: Dict[str, Set[FrozenSet[str]]] = {}
@@ -39,10 +39,11 @@ class StaticBase(AbstractBase):
 
         if post_warning:
             extra_keys_dict[cls.__name__].add(extra_keys)
+            t = (str(k) for k in kwargs.keys())
             logging.warning(
                 (f"DiscordObject Initialization warning. Object {cls.__name__}"
                  f" was attempted to initialize with the keys: "
-                 f"{', '.join((str(k) for k in kwargs.keys()))}"))
+                 f"{', '.join(t)}"))
 
 
 class StaticUser(StaticBase, AbstractUser):
@@ -79,6 +80,14 @@ class StaticUser(StaticBase, AbstractUser):
 
 
 class StaticMixinTextChannel(StaticBase, AbstractMixinTextChannel):
+
+    @property
+    def type_int(self) -> int:
+        raise NotImplementedError
+
+    @property
+    def event_message_created(self) -> EventDispenser['AbstractMessage']:
+        raise NotImplementedError
 
     @property
     def message_class(self) -> Type['AbstractMessage']:

@@ -16,9 +16,10 @@ WeakRefCallbackType = TypingCallable[[CallbackType], None]
 
 class EventDispenser(Generic[EventData]):
 
-    def __init__(self, event_loop: AbstractEventLoop):
+    def __init__(self, event_loop: AbstractEventLoop, extra_refs: object = None):
         self._callback_array: TypingDeque[WeakRefCallbackType] = Deque()
         self.event_loop = event_loop
+        self.extra_refs = extra_refs
 
     async def __aiter__(self) -> TypingAsyncGenerator[EventData, None]:
         new_queue = AsyncioQueue()

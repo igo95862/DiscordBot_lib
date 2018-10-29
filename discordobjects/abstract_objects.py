@@ -292,7 +292,7 @@ class AbstractGuild(AbstractBase):
 
     @property
     @abstractmethod
-    def emoji(self) -> Mapping[str, 'AbstractEmoji']:
+    def emojis(self) -> Mapping[str, 'AbstractEmoji']:
         ...
 
     @property

@@ -1,11 +1,11 @@
 from asyncio import get_event_loop, wait
 
 from .client import DiscordClientAsync
-from .dynamic import GuildUnit
+from .guild_unit import GuildUnit
 from typing import Type, Tuple
 
 
-def init_guild(token: str, guild_id: str, guild_class: Type[GuildUnit] = GuildUnit):
+def init_guild(token: str, guild_id: str, guild_class: Type[GuildUnit] = GuildUnit) -> GuildUnit:
     loop = get_event_loop()
     client = DiscordClientAsync(token, use_socket=False)
     guild_unit = guild_class(client, guild_id, loop)
