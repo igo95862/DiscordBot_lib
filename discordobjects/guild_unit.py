@@ -600,22 +600,19 @@ class LinkedMessage(AbstractMessage):
             return new_dispenser
 
 
-class LinkedEmoji(AbstractEmoji):
-    def __init__(self, parent_unit: GuildUnit, emoji_data: DataDict):
-        self.parent_unit = parent_unit
-        self._emoji_data = emoji_data
+class LinkedEmoji(BaseLinked, AbstractEmoji):
 
     @property
     def name(self) -> str:
-        return self._emoji_data['name']
+        return self._get_data()['name']
 
     @property
     def emoji_id(self) -> Optional[str]:
-        return self._emoji_data['id']
+        return self._get_data()['id']
 
     @property
     def is_animated(self) -> bool:
-        return self._emoji_data['animated']
+        return self._get_data()['animated']
 
 
 class LinkedGuildChannelVoice(BaseLinked, AbstractGuildChannelVoice):
